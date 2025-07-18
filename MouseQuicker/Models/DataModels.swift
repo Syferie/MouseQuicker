@@ -204,7 +204,7 @@ struct AppConfig: Codable {
     
     /// Validate the configuration
     var isValid: Bool {
-        return triggerDuration >= 0.1 && triggerDuration <= 1.0 && shortcutItems.count <= 10
+        return triggerDuration >= 0.1 && triggerDuration <= 1.0 && shortcutItems.count <= 20
     }
     
     /// Default configuration with sample shortcuts

@@ -30,6 +30,7 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     private var trackingArea: NSTrackingArea?
     private var menuRadius: CGFloat = 120.0
     private var innerRadius: CGFloat = 35.0
+    private var outerRadius: CGFloat = 205.0  // 外层半径，保持与内层相同的环形宽度(85像素)
     private let sectorPadding: CGFloat = 2.0
 
     // Appearance settings
@@ -190,41 +191,47 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
         if isHovered {
             // Draw enhanced hover effect similar to Pie Menu
-            drawHoveredSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context)
+            drawHoveredSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context, layer: sector.layer)
         } else {
             // Draw normal sector with subtle background
-            drawNormalSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context)
+            drawNormalSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context, layer: sector.layer)
         }
 
         // Draw icon and text
         drawSectorContent(sector, in: context, center: center, isHovered: isHovered)
     }
 
-    private func drawNormalSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext) {
+    private func drawNormalSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext, layer: MenuLayer) {
+        // 根据层级确定半径
+        let (sectorInnerRadius, sectorOuterRadius) = radiusForLayer(layer)
+
         // Create sector path (ring shape, not full pie)
         context.beginPath()
-        context.addArc(center: center, radius: innerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        context.addArc(center: center, radius: menuRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
+        context.addArc(center: center, radius: sectorInnerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        context.addArc(center: center, radius: sectorOuterRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
         context.closePath()
 
         // Very subtle fill for normal state
         context.setFillColor(NSColor.controlColor.withAlphaComponent(0.1).cgColor)
         context.fillPath()
 
-        // Draw subtle border lines between sectors
+        // Draw subtle border lines between sectors (only within current layer)
         context.beginPath()
-        context.move(to: CGPoint(x: center.x + cos(startAngle) * innerRadius, y: center.y + sin(startAngle) * innerRadius))
-        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * menuRadius, y: center.y + sin(startAngle) * menuRadius))
+        context.move(to: CGPoint(x: center.x + cos(startAngle) * sectorInnerRadius, y: center.y + sin(startAngle) * sectorInnerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * sectorOuterRadius, y: center.y + sin(startAngle) * sectorOuterRadius))
         context.setStrokeColor(NSColor.separatorColor.withAlphaComponent(0.3).cgColor)
         context.setLineWidth(0.5)
         context.strokePath()
     }
 
-    private func drawHoveredSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext) {
+    private func drawHoveredSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext, layer: MenuLayer) {
+        // 根据层级确定半径
+        let (sectorInnerRadius, sectorOuterRadius) = radiusForLayer(layer)
+
         // Create sector path (ring shape)
         context.beginPath()
-        context.addArc(center: center, radius: innerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        context.addArc(center: center, radius: menuRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
+        context.addArc(center: center, radius: sectorInnerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        context.addArc(center: center, radius: sectorOuterRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
         context.closePath()
 
         // Gray highlight like Pie Menu
@@ -234,10 +241,10 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
         // Subtle border for hovered sector
         context.beginPath()
-        context.move(to: CGPoint(x: center.x + cos(startAngle) * innerRadius, y: center.y + sin(startAngle) * innerRadius))
-        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * menuRadius, y: center.y + sin(startAngle) * menuRadius))
-        context.move(to: CGPoint(x: center.x + cos(endAngle) * innerRadius, y: center.y + sin(endAngle) * innerRadius))
-        context.addLine(to: CGPoint(x: center.x + cos(endAngle) * menuRadius, y: center.y + sin(endAngle) * menuRadius))
+        context.move(to: CGPoint(x: center.x + cos(startAngle) * sectorInnerRadius, y: center.y + sin(startAngle) * sectorInnerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * sectorOuterRadius, y: center.y + sin(startAngle) * sectorOuterRadius))
+        context.move(to: CGPoint(x: center.x + cos(endAngle) * sectorInnerRadius, y: center.y + sin(endAngle) * sectorInnerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(endAngle) * sectorOuterRadius, y: center.y + sin(endAngle) * sectorOuterRadius))
         context.setStrokeColor(NSColor.white.withAlphaComponent(0.2).cgColor)
         context.setLineWidth(0.5)
         context.strokePath()
@@ -245,7 +252,10 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     
     private func drawSectorContent(_ sector: PieMenuSector, in context: CGContext, center: CGPoint, isHovered: Bool) {
         let midAngle = (sector.startAngle + sector.endAngle) / 2
-        let iconRadius = (menuRadius + innerRadius) / 2
+
+        // 根据层级计算图标位置的半径
+        let (sectorInnerRadius, sectorOuterRadius) = radiusForLayer(sector.layer)
+        let iconRadius = (sectorInnerRadius + sectorOuterRadius) / 2
         
         // Calculate icon position
         let iconX = center.x + cos(midAngle) * iconRadius
@@ -573,8 +583,8 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         let dy = point.y - center.y
         let distance = sqrt(dx*dx + dy*dy)
 
-        // Check if point is within the menu ring
-        guard distance >= innerRadius && distance <= menuRadius else {
+        // Check if point is within any menu ring (inner or outer)
+        guard distance >= innerRadius && distance <= outerRadius else {
             return -1
         }
 
@@ -582,8 +592,14 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         let angle = atan2(dy, dx)
         let normalizedAngle = angle < 0 ? angle + 2 * .pi : angle
 
-        // Find which sector contains this angle
+        // Find which sector contains this angle and distance
         for (index, sector) in sectors.enumerated() {
+            // 检查距离是否在该扇形的层级范围内
+            let (sectorInnerRadius, sectorOuterRadius) = radiusForLayer(sector.layer)
+            guard distance >= sectorInnerRadius && distance <= sectorOuterRadius else {
+                continue
+            }
+
             let startAngle = sector.startAngle < 0 ? sector.startAngle + 2 * .pi : sector.startAngle
             let endAngle = sector.endAngle < 0 ? sector.endAngle + 2 * .pi : sector.endAngle
 
@@ -608,22 +624,72 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     
     private func updateSectors() {
         sectors.removeAll()
-        
+
         guard !menuItems.isEmpty else { return }
-        
-        let anglePerSector = (2 * CGFloat.pi) / CGFloat(menuItems.count)
+
+        let itemCount = menuItems.count
         let startAngle: CGFloat = -CGFloat.pi / 2 // Start at top
-        
-        for (index, item) in menuItems.enumerated() {
-            let sectorStartAngle = startAngle + CGFloat(index) * anglePerSector
-            let sectorEndAngle = sectorStartAngle + anglePerSector
-            
-            let sector = PieMenuSector(
-                item: item,
-                startAngle: sectorStartAngle,
-                endAngle: sectorEndAngle
-            )
-            sectors.append(sector)
+
+        if itemCount <= 10 {
+            // 单层布局：1-10个项目都放在内层
+            let anglePerSector = (2 * CGFloat.pi) / CGFloat(itemCount)
+
+            for (index, item) in menuItems.enumerated() {
+                let sectorStartAngle = startAngle + CGFloat(index) * anglePerSector
+                let sectorEndAngle = sectorStartAngle + anglePerSector
+
+                let sector = PieMenuSector(
+                    item: item,
+                    startAngle: sectorStartAngle,
+                    endAngle: sectorEndAngle,
+                    layer: .inner
+                )
+                sectors.append(sector)
+            }
+        } else {
+            // 双层布局：11-20个项目
+            let innerItems = Array(menuItems.prefix(10))  // 前10个放内层
+            let outerItems = Array(menuItems.dropFirst(10)) // 后面的放外层
+
+            // 内层：前10个项目，平均分配360度
+            let innerAnglePerSector = (2 * CGFloat.pi) / 10
+            for (index, item) in innerItems.enumerated() {
+                let sectorStartAngle = startAngle + CGFloat(index) * innerAnglePerSector
+                let sectorEndAngle = sectorStartAngle + innerAnglePerSector
+
+                let sector = PieMenuSector(
+                    item: item,
+                    startAngle: sectorStartAngle,
+                    endAngle: sectorEndAngle,
+                    layer: .inner
+                )
+                sectors.append(sector)
+            }
+
+            // 外层：剩余项目，平均分配360度
+            let outerAnglePerSector = (2 * CGFloat.pi) / CGFloat(outerItems.count)
+            for (index, item) in outerItems.enumerated() {
+                let sectorStartAngle = startAngle + CGFloat(index) * outerAnglePerSector
+                let sectorEndAngle = sectorStartAngle + outerAnglePerSector
+
+                let sector = PieMenuSector(
+                    item: item,
+                    startAngle: sectorStartAngle,
+                    endAngle: sectorEndAngle,
+                    layer: .outer
+                )
+                sectors.append(sector)
+            }
+        }
+    }
+
+    /// 根据层级返回对应的内外半径
+    private func radiusForLayer(_ layer: MenuLayer) -> (inner: CGFloat, outer: CGFloat) {
+        switch layer {
+        case .inner:
+            return (innerRadius, menuRadius)
+        case .outer:
+            return (menuRadius, outerRadius)
         }
     }
 }
@@ -749,4 +815,10 @@ private struct PieMenuSector {
     let item: ShortcutItem
     let startAngle: CGFloat
     let endAngle: CGFloat
+    let layer: MenuLayer  // 新增：标识扇形所在的层级
+}
+
+private enum MenuLayer {
+    case inner  // 内层 (0-9)
+    case outer  // 外层 (10-19)
 }

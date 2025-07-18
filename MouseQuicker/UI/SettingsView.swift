@@ -378,12 +378,14 @@ struct ShortcutsSettingsView: View {
                             Spacer()
 
                             Button(action: {
-                                showingAddShortcut = true
+                                if configManager.currentConfig.shortcutItems.count < 20 {
+                                    showingAddShortcut = true
+                                }
                             }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 12, weight: .medium))
-                                    Text("添加")
+                                    Text(configManager.currentConfig.shortcutItems.count >= 20 ? "已达上限" : "添加")
                                         .font(.system(.body, design: .rounded))
                                         .fontWeight(.medium)
                                 }
@@ -392,10 +394,12 @@ struct ShortcutsSettingsView: View {
                                 .padding(.vertical, 6)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.blue)
+                                        .fill(configManager.currentConfig.shortcutItems.count >= 20 ? Color.gray : Color.blue)
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .disabled(configManager.currentConfig.shortcutItems.count >= 20)
+                            .help(configManager.currentConfig.shortcutItems.count >= 20 ? "已达到最大快捷键数量限制（20个）" : "添加新的快捷键")
                         }
 
                         if configManager.currentConfig.shortcutItems.isEmpty {
@@ -450,6 +454,14 @@ struct ShortcutsSettingsView: View {
                             icon: "escape",
                             title: "取消操作",
                             description: "按 ESC 键或点击菜单外任意区域可取消"
+                        )
+
+                        Divider()
+
+                        TipRow(
+                            icon: "number.circle",
+                            title: "快捷键数量",
+                            description: "最多支持 20 个快捷键，超过 10 个时会显示双层菜单"
                         )
                     }
                 }

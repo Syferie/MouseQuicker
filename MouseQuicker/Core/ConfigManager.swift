@@ -106,7 +106,8 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
         }
         
         // Check shortcut items count
-        guard config.shortcutItems.count <= 10 else {
+        guard config.shortcutItems.count <= 20 else {
+            print("ConfigManager: Validation failed - too many shortcut items: \(config.shortcutItems.count), maximum is 20")
             return false
         }
         
@@ -171,6 +172,11 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
     
     /// Add a new shortcut item
     func addShortcutItem(_ item: ShortcutItem) throws {
+        // 检查是否已达到最大数量限制
+        if currentConfig.shortcutItems.count >= 20 {
+            throw ConfigError.validationFailed("已达到最大快捷键数量限制（20个）。请删除一些现有快捷键后再添加新的。")
+        }
+
         var config = currentConfig
         config = AppConfig(
             shortcutItems: config.shortcutItems + [item],
