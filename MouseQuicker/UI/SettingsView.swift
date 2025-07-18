@@ -22,7 +22,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // General Tab
+            // General Tab (merged with advanced and product info)
             GeneralSettingsView()
                 .tabItem {
                     Image(systemName: "gear")
@@ -45,16 +45,8 @@ struct SettingsView: View {
                     Text("外观")
                 }
                 .tag(2)
-
-            // Advanced Tab
-            AdvancedSettingsView()
-                .tabItem {
-                    Image(systemName: "wrench.and.screwdriver")
-                    Text("高级")
-                }
-                .tag(3)
         }
-        .frame(width: 600, height: 500)
+        .frame(width: 650, height: 580)
         .withNotifications()
         .onAppear {
             isViewActive = true
@@ -74,81 +66,293 @@ struct GeneralSettingsView: View {
     @ObservedObject private var permissionManager = PermissionManager.shared
     @ObservedObject private var appCoordinator = AppCoordinator.shared
     @ObservedObject private var configManager = ConfigManager.shared
+    @State private var showingImportExport = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("通用设置")
-                .font(.title2)
-                .padding(.top)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Product Header
+                ProductHeaderView()
 
-            // Permission Status
-            GroupBox("权限状态") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Image(systemName: permissionManager.hasAccessibilityPermission ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(permissionManager.hasAccessibilityPermission ? .green : .red)
-                        Text("辅助功能权限")
-                        Spacer()
-                        if !permissionManager.hasAccessibilityPermission {
-                            Button("授权") {
-                                permissionManager.requestAccessibilityPermission()
-                            }
-                        }
-                    }
+                // Permission Status
+                ModernGroupBox(title: "权限状态", icon: "shield.checkered") {
+                    VStack(spacing: 12) {
+                        PermissionRow(
+                            title: "辅助功能权限",
+                            isGranted: permissionManager.hasAccessibilityPermission,
+                            action: { permissionManager.requestAccessibilityPermission() }
+                        )
 
-                    HStack {
-                        Image(systemName: permissionManager.hasInputMonitoringPermission ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(permissionManager.hasInputMonitoringPermission ? .green : .red)
-                        Text("输入监控权限")
-                        Spacer()
-                        if !permissionManager.hasInputMonitoringPermission {
-                            Button("授权") {
-                                permissionManager.requestInputMonitoringPermission()
-                            }
-                        }
-                    }
-                }
-                .padding()
-            }
+                        Divider()
 
-            // App Status
-            GroupBox("应用状态") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Image(systemName: appCoordinator.isRunning ? "play.circle.fill" : "pause.circle.fill")
-                            .foregroundColor(appCoordinator.isRunning ? .green : .orange)
-                        Text(appCoordinator.isRunning ? "运行中" : "已停止")
-                        Spacer()
-                        Button(appCoordinator.isRunning ? "停止" : "启动") {
-                            if appCoordinator.isRunning {
-                                appCoordinator.stop()
-                            } else {
-                                appCoordinator.start()
-                            }
-                        }
-                    }
-
-                    // Trigger Duration Setting
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("触发延迟: \(String(format: "%.1f", configManager.currentConfig.triggerDuration))秒")
-                        Slider(
-                            value: Binding(
-                                get: { configManager.currentConfig.triggerDuration },
-                                set: { newValue in
-                                    try? configManager.updateTriggerDuration(newValue)
-                                }
-                            ),
-                            in: 0.3...0.5,
-                            step: 0.1
+                        PermissionRow(
+                            title: "输入监控权限",
+                            isGranted: permissionManager.hasInputMonitoringPermission,
+                            action: { permissionManager.requestInputMonitoringPermission() }
                         )
                     }
                 }
-                .padding()
+
+                // App Control
+                ModernGroupBox(title: "应用控制", icon: "power") {
+                    VStack(spacing: 16) {
+                        HStack {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(appCoordinator.isRunning ? Color.green : Color.orange)
+                                    .frame(width: 8, height: 8)
+                                Text(appCoordinator.isRunning ? "运行中" : "已停止")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                            }
+
+                            Spacer()
+
+                            Button(action: {
+                                if appCoordinator.isRunning {
+                                    appCoordinator.stop()
+                                } else {
+                                    appCoordinator.start()
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: appCoordinator.isRunning ? "stop.fill" : "play.fill")
+                                    Text(appCoordinator.isRunning ? "停止" : "启动")
+                                }
+                                .font(.system(.body, design: .rounded))
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(appCoordinator.isRunning ? Color.red : Color.green)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+
+                        Divider()
+
+                        // Trigger Duration Setting
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("触发延迟")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Text("\(String(format: "%.1f", configManager.currentConfig.triggerDuration))秒")
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Slider(
+                                value: Binding(
+                                    get: { configManager.currentConfig.triggerDuration },
+                                    set: { newValue in
+                                        try? configManager.updateTriggerDuration(newValue)
+                                    }
+                                ),
+                                in: 0.3...0.5,
+                                step: 0.1
+                            )
+                            .accentColor(.blue)
+                        }
+                    }
+                }
+
+                // Configuration Management
+                ModernGroupBox(title: "配置管理", icon: "gear.badge") {
+                    VStack(spacing: 12) {
+                        Button(action: { showingImportExport = true }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up.on.square")
+                                    .foregroundColor(.blue)
+                                Text("导入/导出配置")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider()
+
+                        Button(action: {
+                            try? configManager.resetToDefaults()
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(.orange)
+                                Text("重置为默认设置")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding(24)
+        }
+        .sheet(isPresented: $showingImportExport) {
+            ImportExportView()
+        }
+    }
+}
+
+// MARK: - Modern UI Components
+
+struct ProductHeaderView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            // App Icon and Name
+            HStack(spacing: 16) {
+                // App Icon placeholder - you can replace with actual app icon
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: "cursorarrow.click.2")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundColor(.white)
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MouseQuicker")
+                        .font(.system(.title, design: .rounded))
+                        .fontWeight(.bold)
+
+                    Text("by Syferie")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Link(destination: URL(string: "https://github.com/Syferie/MouseQuicker")!) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "link")
+                                Text("GitHub")
+                            }
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.blue)
+                        }
+
+                        Text("•")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+
+                        Text("开源软件")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                )
+        )
+    }
+}
+
+struct ModernGroupBox<Content: View>: View {
+    let title: String
+    let icon: String
+    let content: Content
+
+    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(.blue)
+                    .font(.system(.body, weight: .medium))
+
+                Text(title)
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.semibold)
+
+                Spacer()
             }
 
-            Spacer()
+            content
         }
-        .padding()
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                )
+        )
+    }
+}
+
+struct PermissionRow: View {
+    let title: String
+    let isGranted: Bool
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(isGranted ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+
+            Text(title)
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+
+            Spacer()
+
+            if !isGranted {
+                Button("授权") {
+                    action()
+                }
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.blue)
+                )
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                Text("已授权")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.green)
+                    .fontWeight(.medium)
+            }
+        }
     }
 }
 
@@ -327,66 +531,161 @@ struct AppearanceSettingsView: View {
     }
 }
 
-// MARK: - Advanced Settings
+// MARK: - Import Export View
 
-struct AdvancedSettingsView: View {
+struct ImportExportView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var configManager = ConfigManager.shared
-    @State private var showingImportExport = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @State private var alertTitle = ""
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("高级设置")
-                .font(.title2)
-                .padding(.top)
+        VStack(spacing: 24) {
+            // Header
+            VStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.up.on.square")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundColor(.blue)
 
-            GroupBox("配置管理") {
-                VStack(spacing: 10) {
-                    Button("导出配置") {
-                        exportConfiguration()
-                    }
+                Text("配置管理")
+                    .font(.system(.title2, design: .rounded))
+                    .fontWeight(.bold)
 
-                    Button("导入配置") {
-                        importConfiguration()
-                    }
+                Text("导入或导出您的 MouseQuicker 配置")
+                    .font(.system(.body, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
-                    Button("重置为默认") {
-                        resetToDefaults()
+            // Configuration Info
+            VStack(spacing: 12) {
+                HStack {
+                    Text("当前配置信息")
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.semibold)
+                    Spacer()
+                }
+
+                VStack(spacing: 8) {
+                    InfoRow(label: "配置版本", value: configManager.currentConfig.version)
+                    InfoRow(label: "快捷键数量", value: "\(configManager.currentConfig.shortcutItems.count)")
+                    InfoRow(label: "触发延迟", value: "\(String(format: "%.1f", configManager.currentConfig.triggerDuration))秒")
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                        )
+                )
+            }
+
+            // Action Buttons
+            VStack(spacing: 12) {
+                Button(action: exportConfiguration) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("导出配置")
                     }
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: importConfiguration) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("导入配置")
+                    }
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundColor(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.blue, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                Button(action: resetToDefaults) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("重置为默认设置")
+                    }
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.medium)
                     .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.red.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.red, lineWidth: 1)
+                            )
+                    )
                 }
-                .padding()
+                .buttonStyle(PlainButtonStyle())
             }
 
-            GroupBox("调试信息") {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("配置版本: \(configManager.currentConfig.version)")
-                    Text("快捷键数量: \(configManager.currentConfig.shortcutItems.count)")
-                    Text("触发延迟: \(configManager.currentConfig.triggerDuration)秒")
+            // Close Button
+            HStack {
+                Spacer()
+                Button("关闭") {
+                    dismiss()
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+                .keyboardShortcut(.escape)
             }
-
-            GroupBox("性能监控") {
-                PerformanceView()
-                    .padding()
-            }
-
-            Spacer()
         }
-        .padding()
+        .padding(24)
+        .frame(width: 400)
+        .background(Color(NSColor.windowBackgroundColor))
+        .alert(alertTitle, isPresented: $showingAlert) {
+            Button("确定") { }
+        } message: {
+            Text(alertMessage)
+        }
     }
 
     private func exportConfiguration() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "MouseQuicker_Config.json"
+        panel.title = "导出 MouseQuicker 配置"
+        panel.message = "选择保存配置文件的位置"
 
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try configManager.exportToFile(url: url)
+                alertTitle = "导出成功"
+                alertMessage = "配置已成功导出到 \(url.lastPathComponent)"
+                showingAlert = true
             } catch {
-                print("Export failed: \(error)")
+                alertTitle = "导出失败"
+                alertMessage = "导出配置时发生错误：\(error.localizedDescription)"
+                showingAlert = true
             }
         }
     }
@@ -395,18 +694,51 @@ struct AdvancedSettingsView: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
+        panel.title = "导入 MouseQuicker 配置"
+        panel.message = "选择要导入的配置文件"
 
         if panel.runModal() == .OK, let url = panel.urls.first {
             do {
                 let _ = try configManager.importFromFile(url: url)
+                alertTitle = "导入成功"
+                alertMessage = "配置已成功从 \(url.lastPathComponent) 导入"
+                showingAlert = true
             } catch {
-                print("Import failed: \(error)")
+                alertTitle = "导入失败"
+                alertMessage = "导入配置时发生错误：\(error.localizedDescription)"
+                showingAlert = true
             }
         }
     }
 
     private func resetToDefaults() {
-        try? configManager.resetToDefaults()
+        do {
+            try configManager.resetToDefaults()
+            alertTitle = "重置成功"
+            alertMessage = "所有设置已重置为默认值"
+            showingAlert = true
+        } catch {
+            alertTitle = "重置失败"
+            alertMessage = "重置设置时发生错误：\(error.localizedDescription)"
+            showingAlert = true
+        }
+    }
+}
+
+struct InfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(.body, design: .rounded))
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+        }
     }
 }
 
