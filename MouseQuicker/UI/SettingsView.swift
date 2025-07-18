@@ -1037,20 +1037,7 @@ struct AddShortcutView: View {
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                HStack {
-                    IconPickerButton(selectedIcon: $selectedIcon)
-
-                    Spacer()
-
-                    // Icon preview
-                    if let iconType = selectedIcon,
-                       let nsImage = IconManager.shared.getIcon(type: iconType, size: 24) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                    }
-                }
+                ModernIconPickerView(selectedIcon: $selectedIcon)
             }
         }
     }
