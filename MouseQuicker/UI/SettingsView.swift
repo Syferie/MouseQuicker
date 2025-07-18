@@ -363,7 +363,7 @@ struct AddShortcutView: View {
     @State private var title = ""
     @State private var selectedKey: KeyCode = .a
     @State private var selectedModifiers: Set<ModifierKey> = [.command]
-    @State private var selectedIcon = "keyboard"
+    @State private var selectedIcon: IconType? = IconType.sfSymbol("keyboard")
 
     var body: some View {
         VStack(spacing: 20) {
@@ -381,7 +381,11 @@ struct AddShortcutView: View {
 
                 // Modifier selection would go here
 
-                TextField("图标名称", text: $selectedIcon)
+                HStack {
+                    Text("图标:")
+                    Spacer()
+                    IconPickerButton(selectedIcon: $selectedIcon)
+                }
             }
 
             HStack {
@@ -401,7 +405,19 @@ struct AddShortcutView: View {
 
     private func addShortcut() {
         let shortcut = KeyboardShortcut(primaryKey: selectedKey, modifiers: selectedModifiers)
-        let item = ShortcutItem(title: title, shortcut: shortcut, iconName: selectedIcon)
+
+        // Extract icon name from IconType
+        let iconName: String
+        if let iconType = selectedIcon {
+            switch iconType {
+            case .sfSymbol(let name):
+                iconName = name
+            }
+        } else {
+            iconName = "keyboard" // Default fallback
+        }
+
+        let item = ShortcutItem(title: title, shortcut: shortcut, iconName: iconName)
 
         try? configManager.addShortcutItem(item)
         dismiss()

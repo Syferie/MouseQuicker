@@ -249,8 +249,9 @@ class PieMenuView: NSView, PieMenuViewProtocol {
             height: iconSize
         )
 
-        // Draw icon with white color like Pie Menu
-        if let icon = NSImage(systemSymbolName: sector.item.iconName, accessibilityDescription: nil) {
+        // Use the new icon system to get the appropriate icon
+        let iconType = IconType.sfSymbol(sector.item.iconName) // Default to SF Symbol for now
+        if let icon = IconManager.shared.getIcon(type: iconType, size: iconSize) {
             drawTintedIcon(icon, in: iconRect, color: NSColor.white)
         }
     }
@@ -258,25 +259,58 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     private func drawTintedIcon(_ icon: NSImage, in rect: CGRect, color: NSColor) {
         NSGraphicsContext.saveGraphicsState()
 
-        // Create a copy of the icon and set it as template
+        // Create high-quality rendering hints for crisp icons
+        let renderingHints: [NSImageRep.HintKey: Any] = [
+            .interpolation: NSImageInterpolation.high,
+            .ctm: NSAffineTransform()
+        ]
+
+        // Create a copy of the icon and set it as template for better tinting
         let templateIcon = icon.copy() as! NSImage
         templateIcon.isTemplate = true
 
-        // Use Core Graphics to properly tint the icon
-        if let cgContext = NSGraphicsContext.current?.cgContext {
-            cgContext.saveGState()
+        // Set high-quality rendering
+        templateIcon.cacheMode = .never
 
-            // Set the fill color
-            cgContext.setFillColor(color.cgColor)
+        // Use NSImage's built-in tinting for better quality
+        if let cgImage = templateIcon.cgImage(forProposedRect: nil, context: nil, hints: renderingHints) {
+            if let cgContext = NSGraphicsContext.current?.cgContext {
+                cgContext.saveGState()
 
-            // Draw the icon as a mask and fill with the color
-            cgContext.clip(to: rect, mask: templateIcon.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
-            cgContext.fill(rect)
+                // Enable high-quality rendering
+                cgContext.interpolationQuality = .high
+                cgContext.setShouldAntialias(true)
+                cgContext.setShouldSmoothFonts(true)
 
-            cgContext.restoreGState()
+                // Set the fill color
+                cgContext.setFillColor(color.cgColor)
+
+                // Draw the icon as a mask and fill with the color
+                cgContext.clip(to: rect, mask: cgImage)
+                cgContext.fill(rect)
+
+                cgContext.restoreGState()
+            }
         }
 
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func createHighQualityIcon(named iconName: String, size: CGFloat) -> NSImage? {
+        // Create SF Symbol with proper configuration for crisp rendering
+        let config = NSImage.SymbolConfiguration(pointSize: size, weight: .medium, scale: .large)
+
+        if let icon = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) {
+            // Apply the configuration for better quality
+            let configuredIcon = icon.withSymbolConfiguration(config) ?? icon
+
+            // Set the size explicitly for pixel-perfect rendering
+            configuredIcon.size = NSSize(width: size, height: size)
+
+            return configuredIcon
+        }
+
+        return nil
     }
 
     private func drawCenterText(_ text: String, at center: CGPoint) {
