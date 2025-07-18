@@ -17,6 +17,9 @@ struct SettingsView: View {
     @State private var showingAddShortcut = false
     @State private var showingImportExport = false
 
+    // 内存管理
+    @State private var isViewActive = true
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // General Tab
@@ -53,7 +56,16 @@ struct SettingsView: View {
         }
         .frame(width: 600, height: 500)
         .withNotifications()
+        .onAppear {
+            isViewActive = true
+        }
+        .onDisappear {
+            isViewActive = false
+            // 设置面板不是性能瓶颈，不需要特殊清理
+        }
     }
+
+
 }
 
 // MARK: - General Settings

@@ -114,6 +114,13 @@ class PieMenuWindow: NSWindow {
         // Don't become key window to avoid interfering with target application focus
         return false
     }
+
+    // MARK: - Memory Management
+
+    deinit {
+        // 清理菜单视图缓存
+        pieMenuView.clearCache()
+    }
 }
 
 /// A full-screen view that captures all mouse events and forwards them appropriately

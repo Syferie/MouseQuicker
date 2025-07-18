@@ -27,7 +27,13 @@ enum IconCategory: String, CaseIterable {
     case development = "开发"
     case custom = "自定义"
     
+    // 使用懒加载减少内存占用
     var sfSymbols: [String] {
+        return IconCategoryCache.shared.getSymbols(for: self)
+    }
+
+    // 内部实现，避免重复创建大数组
+    fileprivate var _sfSymbols: [String] {
         switch self {
         case .system:
             return [
@@ -159,6 +165,60 @@ enum IconCategory: String, CaseIterable {
     }
 }
 
+// MARK: - Icon Category Cache
+
+/// 管理图标分类的缓存，避免重复创建大数组
+class IconCategoryCache {
+    static let shared = IconCategoryCache()
+
+    private var cache: [IconCategory: [String]] = [:]
+    private let cacheQueue = DispatchQueue(label: "icon.category.cache", qos: .utility)
+    private var isClearing = false // 防止重复清理
+
+    private init() {}
+
+    func getSymbols(for category: IconCategory) -> [String] {
+        return cacheQueue.sync {
+            if let cached = cache[category] {
+                return cached
+            }
+
+            let symbols = category._sfSymbols
+            cache[category] = symbols
+            return symbols
+        }
+    }
+
+    /// 清理缓存（异步执行，避免阻塞主线程）
+    func clearCache() {
+        guard !isClearing else { return } // 防止重复清理
+
+        isClearing = true
+        cacheQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.cache.removeAll()
+            self.isClearing = false
+
+            DispatchQueue.main.async {
+                print("IconCategoryCache: Cache cleared")
+            }
+        }
+    }
+
+    /// 清理特定分类的缓存（异步执行）
+    func clearCache(for category: IconCategory) {
+        cacheQueue.async { [weak self] in
+            self?.cache.removeValue(forKey: category)
+        }
+    }
+
+    /// 同步清理缓存（避免使用，容易导致卡死）
+    func clearCacheSync() {
+        // 统一使用异步清理，避免同步操作导致卡死
+        clearCache()
+    }
+}
+
 // MARK: - Icon Provider Protocol
 
 protocol IconProvider {
@@ -173,10 +233,30 @@ class IconManager: ObservableObject {
 
     private let sfSymbolProvider = SFSymbolProvider()
 
+    // 内存管理
+    private var iconCache: [String: NSImage] = [:]
+    private let maxCacheSize = 50
+    private var cacheAccessOrder: [String] = []
+    private let cacheQueue = DispatchQueue(label: "IconManager.cache", qos: .utility)
+    private var isClearing = false // 防止重复清理
+
     private init() {}
     
     func getIcon(type: IconType, size: CGFloat) -> NSImage? {
-        return sfSymbolProvider.loadIcon(type: type, size: size)
+        let cacheKey = "\(type)_\(size)"
+
+        // 检查缓存
+        if let cachedIcon = getCachedIcon(for: cacheKey) {
+            return cachedIcon
+        }
+
+        // 加载新图标
+        if let icon = sfSymbolProvider.loadIcon(type: type, size: size) {
+            cacheIcon(icon, for: cacheKey)
+            return icon
+        }
+
+        return nil
     }
     
     func getAllIcons(category: IconCategory) -> [IconType] {
@@ -194,6 +274,64 @@ class IconManager: ObservableObject {
         }
 
         return results
+    }
+
+    // MARK: - Memory Management
+
+    /// 管理图标缓存，实现LRU策略
+    private func manageCacheSize() {
+        while iconCache.count > maxCacheSize {
+            if let oldestKey = cacheAccessOrder.first {
+                iconCache.removeValue(forKey: oldestKey)
+                cacheAccessOrder.removeFirst()
+            } else {
+                break
+            }
+        }
+    }
+
+    /// 获取缓存的图标，更新访问顺序
+    private func getCachedIcon(for key: String) -> NSImage? {
+        if let icon = iconCache[key] {
+            // 更新访问顺序
+            if let index = cacheAccessOrder.firstIndex(of: key) {
+                cacheAccessOrder.remove(at: index)
+            }
+            cacheAccessOrder.append(key)
+            return icon
+        }
+        return nil
+    }
+
+    /// 缓存图标
+    private func cacheIcon(_ icon: NSImage, for key: String) {
+        iconCache[key] = icon
+        cacheAccessOrder.append(key)
+        manageCacheSize()
+    }
+
+    /// 清理所有缓存
+    func clearCache() {
+        // 防止重复清理
+        guard !isClearing else {
+            print("IconManager: Cache clearing already in progress, skipping")
+            return
+        }
+
+        isClearing = true
+
+        // 在专用队列中执行清理，避免阻塞
+        cacheQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            self.iconCache.removeAll()
+            self.cacheAccessOrder.removeAll()
+
+            DispatchQueue.main.async {
+                self.isClearing = false
+                print("IconManager: Icon cache cleared")
+            }
+        }
     }
 }
 

@@ -168,6 +168,22 @@ class PerformanceMonitor: ObservableObject {
         metrics = PerformanceMetrics()
         logger.info("Performance metrics reset")
     }
+
+    /// 定期清理旧的性能数据，防止内存累积
+    func cleanupOldMetrics() {
+        // 限制每个操作的计时记录数量
+        let maxRecordsPerOperation = 100
+
+        for (key, timing) in metrics.timings {
+            if timing.measurementCount > maxRecordsPerOperation {
+                // 重置计时数据，保留平均值
+                let avgDuration = timing.averageDuration
+                metrics.timings[key] = TimingData(duration: avgDuration)
+            }
+        }
+
+        logger.debug("Performance metrics cleaned up")
+    }
 }
 
 // MARK: - Supporting Types

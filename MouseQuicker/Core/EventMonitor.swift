@@ -32,6 +32,9 @@ class EventMonitor: EventMonitorProtocol {
     
     deinit {
         stopMonitoring()
+        // 确保所有定时器都被清理
+        triggerTimer?.invalidate()
+        triggerTimer = nil
     }
     
     // MARK: - EventMonitorProtocol Implementation

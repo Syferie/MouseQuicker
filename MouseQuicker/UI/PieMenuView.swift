@@ -37,6 +37,10 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     private var cachedIconCache: [String: NSImage] = [:]
     private var needsRecalculation = true
 
+    // Memory management
+    private let maxCacheSize = 20 // 限制缓存大小
+    private var cacheAccessOrder: [String] = [] // LRU缓存顺序
+
     // Global keyboard monitoring for ESC key
     private var keyboardMonitor: Any?
     
@@ -294,6 +298,46 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         }
 
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    // MARK: - Memory Management
+
+    /// 管理图标缓存，实现LRU策略
+    private func manageCacheSize() {
+        while cachedIconCache.count > maxCacheSize {
+            if let oldestKey = cacheAccessOrder.first {
+                cachedIconCache.removeValue(forKey: oldestKey)
+                cacheAccessOrder.removeFirst()
+            } else {
+                break
+            }
+        }
+    }
+
+    /// 获取缓存的图标，更新访问顺序
+    private func getCachedIcon(for key: String) -> NSImage? {
+        if let icon = cachedIconCache[key] {
+            // 更新访问顺序
+            if let index = cacheAccessOrder.firstIndex(of: key) {
+                cacheAccessOrder.remove(at: index)
+            }
+            cacheAccessOrder.append(key)
+            return icon
+        }
+        return nil
+    }
+
+    /// 缓存图标
+    private func cacheIcon(_ icon: NSImage, for key: String) {
+        cachedIconCache[key] = icon
+        cacheAccessOrder.append(key)
+        manageCacheSize()
+    }
+
+    /// 清理所有缓存
+    func clearCache() {
+        cachedIconCache.removeAll()
+        cacheAccessOrder.removeAll()
     }
 
     private func createHighQualityIcon(named iconName: String, size: CGFloat) -> NSImage? {

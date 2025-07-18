@@ -144,6 +144,17 @@ class PieMenuController: NSObject, PieMenuControllerProtocol {
         menuWindow?.orderOut(nil)
         delegate?.pieMenuControllerDidHide(self)
     }
+
+    /// 清理内存和资源
+    func cleanup() {
+        // 隐藏菜单
+        forceHide()
+
+        // 清理窗口
+        menuWindow = nil
+
+        print("PieMenuController: Cleanup completed")
+    }
 }
 
 // MARK: - PieMenuViewDelegate

@@ -13,12 +13,16 @@ import AppKit
 struct IconPickerView: View {
     @Binding var selectedIcon: IconType?
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var selectedCategory: IconCategory = .system
     @State private var searchText = ""
     @State private var icons: [IconType] = []
-    
+
     private let iconManager = IconManager.shared
+
+    // 内存管理
+    @State private var isViewActive = true
+    @State private var hasCleanedUp = false // 防止重复清理
     private let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 6)
     
     var body: some View {
@@ -47,6 +51,14 @@ struct IconPickerView: View {
         }
         .onChange(of: searchText) { _ in
             loadIcons()
+        }
+        .onAppear {
+            isViewActive = true
+        }
+        .onDisappear {
+            isViewActive = false
+            // 清理内存
+            cleanupMemory()
         }
     }
     
@@ -293,10 +305,56 @@ struct IconPickerView: View {
     }
     
     private func loadIcons() {
-        if searchText.isEmpty {
-            icons = iconManager.getAllIcons(category: selectedCategory)
-        } else {
-            icons = iconManager.searchIcons(query: searchText)
+        // 在后台线程加载图标，避免阻塞UI
+        DispatchQueue.global(qos: .userInitiated).async {
+            let newIcons: [IconType]
+            if self.searchText.isEmpty {
+                newIcons = self.iconManager.getAllIcons(category: self.selectedCategory)
+            } else {
+                newIcons = self.iconManager.searchIcons(query: self.searchText)
+            }
+
+            // 回到主线程更新UI
+            DispatchQueue.main.async {
+                // 检查视图是否还活跃
+                if self.isViewActive {
+                    self.icons = newIcons
+                }
+            }
+        }
+    }
+
+    // MARK: - Memory Management
+
+    /// 清理内存，释放图标数据（图标选择器是真正的性能瓶颈）
+    private func cleanupMemory() {
+        // 防止重复清理
+        guard !hasCleanedUp else {
+            print("IconPickerView: Cleanup already performed, skipping")
+            return
+        }
+        hasCleanedUp = true
+
+        print("IconPickerView: Starting memory cleanup")
+
+        // 立即清空图标数组，这是最重要的内存释放
+        icons.removeAll()
+        searchText = ""
+
+        // 延迟清理缓存，给视图销毁留出时间
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // 在后台线程清理缓存
+            DispatchQueue.global(qos: .utility).async {
+                print("IconPickerView: Clearing icon cache")
+                self.iconManager.clearCache()
+
+                print("IconPickerView: Clearing category cache")
+                IconCategoryCache.shared.clearCache()
+
+                DispatchQueue.main.async {
+                    print("IconPickerView: Memory cleanup completed")
+                }
+            }
         }
     }
 }

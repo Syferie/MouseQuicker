@@ -33,6 +33,9 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
 
     // MARK: - Target Application Tracking
     private var targetApplication: NSRunningApplication?
+
+    // MARK: - Memory Management
+    private var memoryCleanupTimer: Timer?
     
     private override init() {
         // Initialize config manager first
@@ -62,6 +65,10 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
             try eventMonitor?.startMonitoring()
 
             isRunning = true
+
+            // 启动内存清理定时器
+            startMemoryCleanupTimer()
+
             print("MouseQuicker started successfully")
 
         } catch {
@@ -76,7 +83,10 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         
         eventMonitor?.stopMonitoring()
         pieMenuController?.hideMenu(animated: false)
-        
+
+        // 停止内存清理定时器
+        stopMemoryCleanupTimer()
+
         isRunning = false
         print("MouseQuicker stopped")
     }
@@ -209,7 +219,7 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
             settingsWindow?.title = "MouseQuicker 设置"
             settingsWindow?.contentViewController = hostingController
             settingsWindow?.center()
-            settingsWindow?.isReleasedWhenClosed = false
+            settingsWindow?.isReleasedWhenClosed = false  // 手动管理窗口生命周期
             settingsWindow?.level = .floating
 
             // Set window delegate to handle close
@@ -238,8 +248,50 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     
     @objc private func quit() {
         stop()
+        cleanupMemory()
         NSApplication.shared.terminate(nil)
     }
+
+    /// 清理内存，释放缓存
+    private func cleanupMemory() {
+        // 清理图标缓存
+        IconManager.shared.clearCache()
+
+        // 清理性能监控数据
+        PerformanceMonitor.shared.cleanupOldMetrics()
+
+        // 清理菜单控制器
+        pieMenuController?.cleanup()
+
+        print("AppCoordinator: Memory cleanup completed")
+    }
+
+    /// 启动定期内存清理
+    private func startMemoryCleanupTimer() {
+        // 每5分钟清理一次内存
+        memoryCleanupTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            self?.performPeriodicCleanup()
+        }
+    }
+
+    /// 停止定期内存清理
+    private func stopMemoryCleanupTimer() {
+        memoryCleanupTimer?.invalidate()
+        memoryCleanupTimer = nil
+    }
+
+    /// 执行定期清理
+    private func performPeriodicCleanup() {
+        // 在后台线程执行清理，避免阻塞主线程
+        DispatchQueue.global(qos: .utility).async {
+            // 只清理性能监控数据，不再基于内存使用进行清理
+            PerformanceMonitor.shared.cleanupOldMetrics()
+
+            print("AppCoordinator: Periodic cleanup completed")
+        }
+    }
+
+
 
     /// Test the pie menu functionality
     @objc private func testPieMenu() {
@@ -309,11 +361,15 @@ extension AppCoordinator: PieMenuControllerDelegate {
 extension AppCoordinator {
     func windowWillClose(_ notification: Notification) {
         if notification.object as? NSWindow == settingsWindow {
+            print("Settings window will close")
             settingsWindow = nil
             // Return to accessory mode when settings window closes
             NSApp.setActivationPolicy(.accessory)
+            print("Settings window closed")
         }
     }
+
+
 
     func windowDidBecomeKey(_ notification: Notification) {
         if notification.object as? NSWindow == settingsWindow {
