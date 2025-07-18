@@ -141,7 +141,44 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         eventMonitor?.delegate = self
         pieMenuController?.delegate = self
 
+        // Set up configuration change notifications
+        setupConfigurationNotifications()
+
         print("AppCoordinator: Components initialized")
+    }
+
+    private func setupConfigurationNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(configurationDidChange(_:)),
+            name: .configurationDidChange,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(configurationDidImport(_:)),
+            name: .configurationDidImport,
+            object: nil
+        )
+
+        print("AppCoordinator: Configuration notifications set up")
+    }
+
+    @objc private func configurationDidChange(_ notification: Notification) {
+        guard let config = notification.object as? AppConfig else { return }
+
+        print("AppCoordinator: Configuration changed, updating components")
+        currentConfig = config
+        applyConfiguration(config)
+    }
+
+    @objc private func configurationDidImport(_ notification: Notification) {
+        guard let config = notification.object as? AppConfig else { return }
+
+        print("AppCoordinator: Configuration imported, updating components")
+        currentConfig = config
+        applyConfiguration(config)
     }
     
     private func setupMenuBar() {
@@ -301,20 +338,28 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     }
     
     // MARK: - Error Handling
-    
+
     private func handleMissingPermissions() {
         if !PermissionManager.shared.hasAccessibilityPermission {
             PermissionManager.shared.handleMissingAccessibilityPermission()
         }
-        
+
         if !PermissionManager.shared.hasInputMonitoringPermission {
             PermissionManager.shared.handleMissingInputMonitoringPermission()
         }
     }
-    
+
     private func handleStartupError(_ error: Error) {
         // This is now handled by ErrorHandler.shared.handleError
         // Keep this method for backward compatibility if needed
+    }
+
+    // MARK: - Memory Management
+
+    deinit {
+        // Clean up resources
+        NotificationCenter.default.removeObserver(self)
+        print("AppCoordinator: Deinitialized")
     }
 }
 
