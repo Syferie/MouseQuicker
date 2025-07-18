@@ -28,8 +28,8 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
     private var sectors: [PieMenuSector] = []
     private var trackingArea: NSTrackingArea?
-    private let menuRadius: CGFloat = 100.0
-    private let innerRadius: CGFloat = 30.0
+    private let menuRadius: CGFloat = 120.0
+    private let innerRadius: CGFloat = 35.0
     private let sectorPadding: CGFloat = 2.0
 
     // Performance optimization: cache frequently used values
@@ -117,30 +117,57 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     
     private func drawPieMenu(in context: CGContext) {
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        
+
         // Draw background circle with glass effect
         drawBackgroundCircle(in: context, center: center)
-        
-        // Draw sectors
+
+        // Draw center circle FIRST (before sectors and text)
+        drawCenterCircle(in: context, center: center)
+
+        // Draw sectors (including icons)
         for (index, sector) in sectors.enumerated() {
             let isHovered = index == hoveredIndex
             drawSector(sector, in: context, center: center, isHovered: isHovered)
         }
-        
-        // Draw center circle
-        drawCenterCircle(in: context, center: center)
+
+        // Draw center text LAST (on top of everything)
+        if hoveredIndex >= 0 && hoveredIndex < sectors.count {
+            let hoveredSector = sectors[hoveredIndex]
+            drawCenterText(hoveredSector.item.title, at: center)
+        }
     }
     
     private func drawBackgroundCircle(in context: CGContext, center: CGPoint) {
-        // Create glass effect background
-        context.setFillColor(NSColor.controlBackgroundColor.withAlphaComponent(0.7).cgColor)
+        // Create simple dark transparent background like Pie Menu (no gradient!)
+        context.saveGState()
+
+        // Use single dark transparent color like Pie Menu
+        let backgroundColor = CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.8)
+
+        // Draw simple solid circle like Pie Menu
         context.addArc(center: center, radius: menuRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+        context.setFillColor(backgroundColor)
         context.fillPath()
-        
-        // Add border
-        context.setStrokeColor(NSColor.separatorColor.cgColor)
-        context.setLineWidth(1.0)
+
+        // Cut out inner circle
+        context.addArc(center: center, radius: innerRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0)) // transparent
+        context.setBlendMode(.clear)
+        context.fillPath()
+        context.setBlendMode(.normal)
+
+        context.restoreGState()
+
+        // Add subtle outer border with white color
+        context.setStrokeColor(NSColor.white.withAlphaComponent(0.2).cgColor)
+        context.setLineWidth(0.5)
         context.addArc(center: center, radius: menuRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+        context.strokePath()
+
+        // Add inner border for the center circle
+        context.setStrokeColor(NSColor.white.withAlphaComponent(0.15).cgColor)
+        context.setLineWidth(0.5)
+        context.addArc(center: center, radius: innerRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
         context.strokePath()
     }
     
@@ -148,27 +175,60 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         // Calculate sector path
         let startAngle = sector.startAngle
         let endAngle = sector.endAngle
-        
-        // Create sector path
-        context.beginPath()
-        context.move(to: center)
-        context.addArc(center: center, radius: menuRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        context.closePath()
-        
-        // Fill sector
-        let fillColor = isHovered ? NSColor.selectedControlColor.withAlphaComponent(0.8) : NSColor.controlColor.withAlphaComponent(0.5)
-        context.setFillColor(fillColor.cgColor)
-        context.fillPath()
-        
-        // Draw sector border
-        context.beginPath()
-        context.addArc(center: center, radius: menuRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        context.setStrokeColor(NSColor.separatorColor.cgColor)
-        context.setLineWidth(0.5)
-        context.strokePath()
-        
+
+        if isHovered {
+            // Draw enhanced hover effect similar to Pie Menu
+            drawHoveredSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context)
+        } else {
+            // Draw normal sector with subtle background
+            drawNormalSector(startAngle: startAngle, endAngle: endAngle, center: center, context: context)
+        }
+
         // Draw icon and text
         drawSectorContent(sector, in: context, center: center, isHovered: isHovered)
+    }
+
+    private func drawNormalSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext) {
+        // Create sector path (ring shape, not full pie)
+        context.beginPath()
+        context.addArc(center: center, radius: innerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        context.addArc(center: center, radius: menuRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
+        context.closePath()
+
+        // Very subtle fill for normal state
+        context.setFillColor(NSColor.controlColor.withAlphaComponent(0.1).cgColor)
+        context.fillPath()
+
+        // Draw subtle border lines between sectors
+        context.beginPath()
+        context.move(to: CGPoint(x: center.x + cos(startAngle) * innerRadius, y: center.y + sin(startAngle) * innerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * menuRadius, y: center.y + sin(startAngle) * menuRadius))
+        context.setStrokeColor(NSColor.separatorColor.withAlphaComponent(0.3).cgColor)
+        context.setLineWidth(0.5)
+        context.strokePath()
+    }
+
+    private func drawHoveredSector(startAngle: CGFloat, endAngle: CGFloat, center: CGPoint, context: CGContext) {
+        // Create sector path (ring shape)
+        context.beginPath()
+        context.addArc(center: center, radius: innerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        context.addArc(center: center, radius: menuRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
+        context.closePath()
+
+        // Gray highlight like Pie Menu
+        let highlightColor = CGColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 0.3)
+        context.setFillColor(highlightColor)
+        context.fillPath()
+
+        // Subtle border for hovered sector
+        context.beginPath()
+        context.move(to: CGPoint(x: center.x + cos(startAngle) * innerRadius, y: center.y + sin(startAngle) * innerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(startAngle) * menuRadius, y: center.y + sin(startAngle) * menuRadius))
+        context.move(to: CGPoint(x: center.x + cos(endAngle) * innerRadius, y: center.y + sin(endAngle) * innerRadius))
+        context.addLine(to: CGPoint(x: center.x + cos(endAngle) * menuRadius, y: center.y + sin(endAngle) * menuRadius))
+        context.setStrokeColor(NSColor.white.withAlphaComponent(0.2).cgColor)
+        context.setLineWidth(0.5)
+        context.strokePath()
     }
     
     private func drawSectorContent(_ sector: PieMenuSector, in context: CGContext, center: CGPoint, isHovered: Bool) {
@@ -180,8 +240,8 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         let iconY = center.y + sin(midAngle) * iconRadius
         let iconPoint = CGPoint(x: iconX, y: iconY)
         
-        // Draw icon with caching optimization
-        let iconSize: CGFloat = isHovered ? 20 : 16
+        // Draw icon with caching optimization - increased size for better visibility
+        let iconSize: CGFloat = isHovered ? 28 : 24
         let iconRect = CGRect(
             x: iconPoint.x - iconSize/2,
             y: iconPoint.y - iconSize/2,
@@ -189,25 +249,77 @@ class PieMenuView: NSView, PieMenuViewProtocol {
             height: iconSize
         )
 
-        // Use cached icon if available
-        if let cachedIcon = cachedIconCache[sector.item.iconName] {
-            cachedIcon.draw(in: iconRect)
-        } else if let icon = NSImage(systemSymbolName: sector.item.iconName, accessibilityDescription: nil) {
-            // Cache the icon for future use
-            cachedIconCache[sector.item.iconName] = icon
-            icon.draw(in: iconRect)
-        }
-        
-        // Draw text if hovered
-        if isHovered {
-            drawSectorText(sector.item.title, at: iconPoint, in: context)
+        // Draw icon with white color like Pie Menu
+        if let icon = NSImage(systemSymbolName: sector.item.iconName, accessibilityDescription: nil) {
+            drawTintedIcon(icon, in: iconRect, color: NSColor.white)
         }
     }
-    
-    private func drawSectorText(_ text: String, at point: CGPoint, in context: CGContext) {
+
+    private func drawTintedIcon(_ icon: NSImage, in rect: CGRect, color: NSColor) {
+        NSGraphicsContext.saveGraphicsState()
+
+        // Create a copy of the icon and set it as template
+        let templateIcon = icon.copy() as! NSImage
+        templateIcon.isTemplate = true
+
+        // Use Core Graphics to properly tint the icon
+        if let cgContext = NSGraphicsContext.current?.cgContext {
+            cgContext.saveGState()
+
+            // Set the fill color
+            cgContext.setFillColor(color.cgColor)
+
+            // Draw the icon as a mask and fill with the color
+            cgContext.clip(to: rect, mask: templateIcon.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+            cgContext.fill(rect)
+
+            cgContext.restoreGState()
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawCenterText(_ text: String, at center: CGPoint) {
+        // Draw text in the center area with coordinated styling
+        NSGraphicsContext.saveGraphicsState()
+
+        // Calculate text size first
+        let font = NSFont.systemFont(ofSize: 14, weight: .medium)
+
+        // Create softer white color - less harsh than pure white
+        let softWhiteColor = NSColor(calibratedRed: 0.9, green: 0.9, blue: 0.9, alpha: 1.0)
+
+        // Create text attributes with softer white color
+        let textAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: softWhiteColor
+        ]
+        let textSize = text.size(withAttributes: textAttributes)
+
+        // No background - just display text directly
+
+        // Draw text with softer white color
+        let textRect = CGRect(
+            x: center.x - textSize.width/2,
+            y: center.y - textSize.height/2,
+            width: textSize.width,
+            height: textSize.height
+        )
+
+        // Create attributed string with softer white color
+        let attributedString = NSAttributedString(string: text, attributes: textAttributes)
+
+        // Draw the text
+        attributedString.draw(in: textRect)
+
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawSectorText(_ text: String, at point: CGPoint, in context: CGContext, isHovered: Bool) {
+        let textColor = isHovered ? NSColor.white : NSColor.labelColor
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-            .foregroundColor: NSColor.labelColor
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: textColor
         ]
         
         let attributedString = NSAttributedString(string: text, attributes: attributes)
@@ -215,7 +327,7 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         
         let textRect = CGRect(
             x: point.x - textSize.width/2,
-            y: point.y - 25,
+            y: point.y - 30,
             width: textSize.width,
             height: textSize.height
         )
@@ -224,14 +336,38 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     }
     
     private func drawCenterCircle(in context: CGContext, center: CGPoint) {
-        // Draw inner circle
-        context.setFillColor(NSColor.controlBackgroundColor.cgColor)
+        let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
+
+        // Draw inner circle with subtle gradient
+        context.saveGState()
+
+        // Create gradient for center circle
+        let centerStartColor = isDarkMode ?
+            NSColor.controlBackgroundColor.withAlphaComponent(0.95) :
+            NSColor.controlBackgroundColor.withAlphaComponent(0.98)
+        let centerEndColor = isDarkMode ?
+            NSColor.controlBackgroundColor.withAlphaComponent(0.8) :
+            NSColor.controlBackgroundColor.withAlphaComponent(0.9)
+
+        let centerGradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                      colors: [centerStartColor.cgColor, centerEndColor.cgColor] as CFArray,
+                                      locations: [0.0, 1.0])!
+
+        // Clip to center circle
         context.addArc(center: center, radius: innerRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-        context.fillPath()
-        
-        // Add border
-        context.setStrokeColor(NSColor.separatorColor.cgColor)
-        context.setLineWidth(1.0)
+        context.clip()
+
+        // Draw radial gradient for center
+        context.drawRadialGradient(centerGradient,
+                                 startCenter: center, startRadius: 0,
+                                 endCenter: center, endRadius: innerRadius,
+                                 options: [])
+
+        context.restoreGState()
+
+        // Add subtle border for center circle
+        context.setStrokeColor(NSColor.separatorColor.withAlphaComponent(0.5).cgColor)
+        context.setLineWidth(0.5)
         context.addArc(center: center, radius: innerRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
         context.strokePath()
     }
@@ -243,57 +379,93 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     }
     
     func animateAppearance(completion: @escaping () -> Void) {
-        // Scale from 0 to 1
-        layer?.transform = CATransform3DMakeScale(0.1, 0.1, 1.0)
+        // Start from small scale and transparent
+        layer?.transform = CATransform3DMakeScale(0.3, 0.3, 1.0)
         layer?.opacity = 0.0
-        
+
         CATransaction.begin()
         CATransaction.setCompletionBlock(completion)
-        
-        let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
-        scaleAnimation.fromValue = 0.1
+
+        // Create spring-like scale animation
+        let scaleAnimation = CASpringAnimation(keyPath: "transform.scale")
+        scaleAnimation.fromValue = 0.3
         scaleAnimation.toValue = 1.0
-        scaleAnimation.duration = 0.2
-        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        
+        scaleAnimation.duration = 0.4
+        scaleAnimation.damping = 15.0
+        scaleAnimation.stiffness = 300.0
+        scaleAnimation.initialVelocity = 0.0
+
+        // Smooth opacity fade-in
         let opacityAnimation = CABasicAnimation(keyPath: "opacity")
         opacityAnimation.fromValue = 0.0
         opacityAnimation.toValue = 1.0
-        opacityAnimation.duration = 0.2
-        
+        opacityAnimation.duration = 0.25
+        opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        // Add subtle rotation for more dynamic feel
+        let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotationAnimation.fromValue = -0.1
+        rotationAnimation.toValue = 0.0
+        rotationAnimation.duration = 0.4
+        rotationAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
         layer?.add(scaleAnimation, forKey: "scaleAppear")
         layer?.add(opacityAnimation, forKey: "opacityAppear")
-        
+        layer?.add(rotationAnimation, forKey: "rotationAppear")
+
         layer?.transform = CATransform3DIdentity
         layer?.opacity = 1.0
-        
+
         CATransaction.commit()
     }
     
     func animateDisappearance(completion: @escaping () -> Void) {
         CATransaction.begin()
         CATransaction.setCompletionBlock(completion)
-        
+
+        // Quick scale down with ease-in timing
         let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
         scaleAnimation.fromValue = 1.0
-        scaleAnimation.toValue = 0.1
-        scaleAnimation.duration = 0.15
-        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
-        
+        scaleAnimation.toValue = 0.2
+        scaleAnimation.duration = 0.2
+        scaleAnimation.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 1.0, 1.0)
+
+        // Fast opacity fade-out
         let opacityAnimation = CABasicAnimation(keyPath: "opacity")
         opacityAnimation.fromValue = 1.0
         opacityAnimation.toValue = 0.0
         opacityAnimation.duration = 0.15
-        
+        opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
+
+        // Slight rotation for dynamic exit
+        let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotationAnimation.fromValue = 0.0
+        rotationAnimation.toValue = 0.05
+        rotationAnimation.duration = 0.2
+        rotationAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
+
         layer?.add(scaleAnimation, forKey: "scaleDisappear")
         layer?.add(opacityAnimation, forKey: "opacityDisappear")
-        
-        layer?.transform = CATransform3DMakeScale(0.1, 0.1, 1.0)
+        layer?.add(rotationAnimation, forKey: "rotationDisappear")
+
+        layer?.transform = CATransform3DMakeScale(0.2, 0.2, 1.0)
         layer?.opacity = 0.0
-        
+
         CATransaction.commit()
     }
-    
+
+    func animateClickFeedback() {
+        // Quick scale pulse for click feedback
+        let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnimation.fromValue = 1.0
+        scaleAnimation.toValue = 0.95
+        scaleAnimation.duration = 0.1
+        scaleAnimation.autoreverses = true
+        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        layer?.add(scaleAnimation, forKey: "clickFeedback")
+    }
+
     func sectorIndex(for point: NSPoint) -> Int {
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let dx = point.x - center.x
@@ -362,7 +534,7 @@ extension PieMenuView {
         print("PieMenuView: mouseDown received at \(event.locationInWindow)")
 
         // Convert window coordinates to view coordinates
-        guard let window = self.window else {
+        guard self.window != nil else {
             print("PieMenuView: No window found")
             return
         }
@@ -389,6 +561,8 @@ extension PieMenuView {
 
         if index >= 0 {
             print("PieMenuView: Clicked on sector \(index)")
+            // Add click feedback animation
+            animateClickFeedback()
             delegate?.pieMenuView(self, didClickSectorAt: index)
         } else {
             // Clicked outside the menu sectors, dismiss the menu

@@ -20,7 +20,7 @@ class PieMenuController: NSObject, PieMenuControllerProtocol {
     
     private var menuWindow: PieMenuWindow?
     private var currentMenuItems: [ShortcutItem] = []
-    private let menuSize: CGFloat = 220.0
+    private let menuSize: CGFloat = 260.0
     
     // MARK: - Initialization
     
@@ -69,7 +69,7 @@ class PieMenuController: NSObject, PieMenuControllerProtocol {
         isVisible = true
 
         // Show window without making it key
-        window.showAnimated { [weak self] in
+        window.showAnimated {
             // Animation completed
         }
         

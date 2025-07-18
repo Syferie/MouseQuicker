@@ -19,7 +19,7 @@ class PieMenuWindow: NSWindow {
     
     init(contentRect: NSRect) {
         // Create the pie menu view with initial size (will be repositioned later)
-        let initialMenuFrame = NSRect(x: 0, y: 0, width: 220, height: 220)
+        let initialMenuFrame = NSRect(x: 0, y: 0, width: 260, height: 260)
         pieMenuView = PieMenuView(frame: initialMenuFrame)
 
         // Initialize window with special properties (now full-screen)
