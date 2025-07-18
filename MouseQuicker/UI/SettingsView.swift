@@ -190,36 +190,80 @@ struct ShortcutsSettingsView: View {
 struct ShortcutItemRow: View {
     let item: ShortcutItem
     @ObservedObject private var configManager = ConfigManager.shared
+    @State private var showingEditSheet = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            // Icon
             Image(systemName: item.iconName)
-                .frame(width: 20)
+                .frame(width: 24, height: 24)
+                .foregroundColor(.accentColor)
 
-            VStack(alignment: .leading) {
+            // Content
+            VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.headline)
+                    .foregroundColor(.primary)
+
                 Text(item.shortcut.displayString)
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(4)
             }
 
             Spacer()
 
-            Toggle("", isOn: Binding(
-                get: { item.isEnabled },
-                set: { newValue in
-                    let updatedItem = item.with(isEnabled: newValue)
-                    try? configManager.updateShortcutItem(updatedItem)
-                }
-            ))
+            // Controls
+            HStack(spacing: 8) {
+                // Enable/Disable toggle
+                Toggle("", isOn: Binding(
+                    get: { item.isEnabled },
+                    set: { newValue in
+                        let updatedItem = item.with(isEnabled: newValue)
+                        try? configManager.updateShortcutItem(updatedItem)
+                    }
+                ))
+                .help(item.isEnabled ? "禁用快捷键" : "启用快捷键")
 
-            Button("删除") {
-                try? configManager.removeShortcutItem(id: item.id)
+                // Edit button
+                Button(action: {
+                    showingEditSheet = true
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .foregroundColor(.accentColor)
+                .help("编辑快捷键")
+
+                // Delete button
+                Button(action: {
+                    try? configManager.removeShortcutItem(id: item.id)
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .foregroundColor(.red)
+                .help("删除快捷键")
             }
-            .foregroundColor(.red)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .sheet(isPresented: $showingEditSheet) {
+            EditShortcutView(shortcutItem: item)
+        }
     }
 }
 
@@ -373,66 +417,163 @@ struct AddShortcutView: View {
     @ObservedObject private var configManager = ConfigManager.shared
 
     @State private var title = ""
-    @State private var selectedKey: KeyCode = .a
-    @State private var selectedModifiers: Set<ModifierKey> = [.command]
+    @State private var recordedShortcut: KeyboardShortcut?
     @State private var selectedIcon: IconType? = IconType.sfSymbol("keyboard")
+    @State private var showingError = false
+    @State private var errorMessage = ""
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("添加新快捷键")
-                .font(.title2)
+            // Header
+            headerView
 
-            Form {
-                TextField("标题", text: $title)
+            // Content
+            contentView
 
-                Picker("主键", selection: $selectedKey) {
-                    ForEach(KeyCode.allCases, id: \.self) { key in
-                        Text(key.displayName).tag(key)
-                    }
-                }
+            // Footer
+            footerView
+        }
+        .padding(20)
+        .frame(width: 480)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(Color(NSColor.windowBackgroundColor))
+        .alert("错误", isPresented: $showingError) {
+            Button("确定") { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
 
-                // Modifier selection would go here
+    private var headerView: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
 
-                HStack {
-                    Text("图标:")
-                    Spacer()
-                    IconPickerButton(selectedIcon: $selectedIcon)
-                }
+                Text("添加新快捷键")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Spacer()
             }
 
-            HStack {
+            Divider()
+        }
+    }
+
+    private var contentView: some View {
+        VStack(spacing: 20) {
+            // Title input
+            VStack(alignment: .leading, spacing: 8) {
+                Text("标题")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                TextField("输入快捷键标题", text: $title)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .font(.body)
+            }
+
+            // Shortcut recorder
+            VStack(alignment: .leading, spacing: 8) {
+                Text("快捷键")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                ShortcutRecorderView(recordedShortcut: $recordedShortcut)
+                    .frame(maxWidth: .infinity)
+            }
+
+            // Icon picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text("图标")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                HStack {
+                    IconPickerButton(selectedIcon: $selectedIcon)
+
+                    Spacer()
+
+                    // Icon preview
+                    if let iconType = selectedIcon,
+                       let nsImage = IconManager.shared.getIcon(type: iconType, size: 24) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                    }
+                }
+            }
+        }
+    }
+
+    private var footerView: some View {
+        VStack(spacing: 12) {
+            Divider()
+
+            HStack(spacing: 12) {
                 Button("取消") {
                     dismiss()
                 }
+                .keyboardShortcut(.escape)
 
                 Button("添加") {
                     addShortcut()
                 }
-                .disabled(title.isEmpty)
+                .keyboardShortcut(.return)
+                .disabled(!canAdd)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding()
-        .frame(width: 400, height: 300)
+    }
+
+    private var canAdd: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        recordedShortcut != nil &&
+        selectedIcon != nil
     }
 
     private func addShortcut() {
-        let shortcut = KeyboardShortcut(primaryKey: selectedKey, modifiers: selectedModifiers)
-
-        // Extract icon name from IconType
-        let iconName: String
-        if let iconType = selectedIcon {
-            switch iconType {
-            case .sfSymbol(let name):
-                iconName = name
-            }
-        } else {
-            iconName = "keyboard" // Default fallback
+        guard let shortcut = recordedShortcut,
+              let iconType = selectedIcon else {
+            showError("请完整填写所有信息")
+            return
         }
 
-        let item = ShortcutItem(title: title, shortcut: shortcut, iconName: iconName)
+        // Validate shortcut
+        guard shortcut.isValid else {
+            showError("快捷键无效，请至少包含一个修饰键")
+            return
+        }
 
-        try? configManager.addShortcutItem(item)
-        dismiss()
+        // Extract icon name
+        let iconName: String
+        switch iconType {
+        case .sfSymbol(let name):
+            iconName = name
+        }
+
+        let item = ShortcutItem(
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            shortcut: shortcut,
+            iconName: iconName
+        )
+
+        do {
+            try configManager.addShortcutItem(item)
+            dismiss()
+        } catch {
+            showError("添加失败: \(error.localizedDescription)")
+        }
+    }
+
+    private func showError(_ message: String) {
+        errorMessage = message
+        showingError = true
     }
 }
 
