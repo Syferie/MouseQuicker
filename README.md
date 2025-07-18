@@ -33,7 +33,7 @@
 - 点击锁图标解锁，添加 MouseQuicker 并勾选
 
 ### 3. 基本操作
-- **呼出菜单**：长按鼠标中键 0.4 秒
+- **呼出菜单**：长按鼠标中键
 - **选择功能**：选择对应快捷键，点击执行
 - **取消菜单**：按 ESC 键或点击菜单外区域
 - **打开设置**：点击菜单栏图标选择"设置"
@@ -59,22 +59,13 @@
 - 编辑描述文字
 - 调整触发时长
 - 导入/导出配置
-
-## 技术架构
-
-- **开发语言**：Swift
-- **UI框架**：SwiftUI + AppKit 混合架构
-- **核心组件**：
-  - `EventMonitor`：全局鼠标事件监听
-  - `PieMenuController`：菜单显示控制
-  - `ShortcutExecutor`：快捷键执行
-  - `ConfigManager`：配置管理
+- 调整菜单外观
 
 ## 开发编译
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/MouseQuicker.git
+git clone https://github.com/Syferie/MouseQuicker.git
 cd MouseQuicker
 
 # 使用 Xcode 打开项目
@@ -92,6 +83,3 @@ xcodebuild -project MouseQuicker.xcodeproj -scheme MouseQuicker -configuration R
 
 欢迎提交 Issue 和 Pull Request 来改进这个项目。
 
----
-
-**注意**：本工具需要系统权限才能正常工作，请确保在受信任的环境中使用。
