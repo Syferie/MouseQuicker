@@ -196,7 +196,19 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "circle.grid.3x3", accessibilityDescription: "MouseQuicker")
+            // 尝试使用应用图标，如果失败则使用系统符号作为后备
+            if let appIcon = NSImage(named: "AppIcon") {
+                // 创建适合菜单栏的小尺寸图标
+                let menuBarIcon = NSImage(size: NSSize(width: 18, height: 18))
+                menuBarIcon.lockFocus()
+                appIcon.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
+                menuBarIcon.unlockFocus()
+                menuBarIcon.isTemplate = true // 设置为模板图像以适应系统主题
+                button.image = menuBarIcon
+            } else {
+                // 后备方案：使用系统符号
+                button.image = NSImage(systemSymbolName: "circle.grid.3x3", accessibilityDescription: "MouseQuicker")
+            }
             button.action = #selector(statusItemClicked)
             button.target = self
         }
@@ -207,31 +219,15 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     private func setupStatusMenu() {
         let menu = NSMenu()
 
-        // Settings menu item
-        let settingsItem = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
+        // Settings menu item (无快捷键)
+        let settingsItem = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        // Start/Stop menu item
-        let startStopItem = NSMenuItem(
-            title: isRunning ? "停止" : "启动",
-            action: #selector(toggleRunning),
-            keyEquivalent: ""
-        )
-        startStopItem.target = self
-        menu.addItem(startStopItem)
-
-        // Test menu item
-        let testItem = NSMenuItem(title: "测试菜单", action: #selector(testPieMenu), keyEquivalent: "t")
-        testItem.target = self
-        menu.addItem(testItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Quit menu item
-        let quitItem = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        // Quit menu item (无快捷键)
+        let quitItem = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -285,14 +281,7 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
     
-    @objc private func toggleRunning() {
-        if isRunning {
-            stop()
-        } else {
-            start()
-        }
-        setupStatusMenu()
-    }
+
     
     @objc private func quit() {
         stop()
@@ -341,14 +330,7 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
 
 
 
-    /// Test the pie menu functionality
-    @objc private func testPieMenu() {
-        guard let config = currentConfig else { return }
-        let mouseLocation = NSEvent.mouseLocation
-        // Filter out disabled shortcut items
-        let enabledItems = config.shortcutItems.filter { $0.isEnabled }
-        pieMenuController?.showMenu(at: mouseLocation, with: enabledItems)
-    }
+
     
     // MARK: - Error Handling
 
