@@ -93,10 +93,16 @@ class PieMenuWindow: NSWindow {
     
     /// Show the window with animation
     func showAnimated(completion: @escaping () -> Void = {}) {
+        // 确保菜单视图处于隐藏状态
+        pieMenuView.layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
+        pieMenuView.layer?.opacity = 0.0
+
         // Only order front if not already visible
         if !isVisible {
             orderFront(nil)
         }
+
+        // 立即开始动画
         pieMenuView.animateAppearance(completion: completion)
     }
     

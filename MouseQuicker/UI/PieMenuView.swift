@@ -37,7 +37,10 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     private var menuAppearance: MenuAppearance = .default {
         didSet {
             updateMenuSize()
-            needsDisplay = true
+            // 只有在初始化完成后才触发重绘
+            if isInitialized {
+                needsDisplay = true
+            }
         }
     }
 
@@ -52,6 +55,9 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
     // Global keyboard monitoring for ESC key
     private var keyboardMonitor: Any?
+
+    // 初始化状态标志
+    private var isInitialized = false
     
     // MARK: - Initialization
     
@@ -69,18 +75,30 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
 
+        // 初始化时设置为隐藏状态，准备动画
+        layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
+        layer?.opacity = 0.0
+
         // Load current configuration on initialization
         loadCurrentConfiguration()
 
         setupTrackingArea()
         setupKeyboardMonitoring()
+
+        // 标记初始化完成
+        isInitialized = true
     }
 
     private func loadCurrentConfiguration() {
         // Get current configuration from ConfigManager
         let currentConfig = ConfigManager.shared.currentConfig
-        menuAppearance = currentConfig.menuAppearance
-        print("PieMenuView: Loaded configuration on init - transparency: \(menuAppearance.transparency), size: \(menuAppearance.menuSize)")
+
+        // 直接设置内部值，避免触发needsDisplay
+        let appearance = currentConfig.menuAppearance
+        menuAppearance = appearance
+        updateMenuSize() // 手动调用更新尺寸，但不触发重绘
+
+        print("PieMenuView: Loaded configuration on init - transparency: \(appearance.transparency), size: \(appearance.menuSize)")
     }
     
     // MARK: - View Lifecycle
@@ -127,6 +145,12 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         super.draw(dirtyRect)
 
         guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // 如果视图处于隐藏状态（透明度为0），不绘制内容
+        if let opacity = layer?.opacity, opacity <= 0.0 {
+            context.clear(dirtyRect)
+            return
+        }
 
         // Performance optimization: measure rendering time
         withPerformanceMeasurement(label: "PieMenuRender") {
@@ -518,39 +542,29 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     }
     
     func animateAppearance(completion: @escaping () -> Void) {
-        // Start from small scale and transparent
-        layer?.transform = CATransform3DMakeScale(0.3, 0.3, 1.0)
+        // 简约快速动画：从稍微小一点和透明开始
+        layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
         layer?.opacity = 0.0
 
         CATransaction.begin()
         CATransaction.setCompletionBlock(completion)
 
-        // Create spring-like scale animation
-        let scaleAnimation = CASpringAnimation(keyPath: "transform.scale")
-        scaleAnimation.fromValue = 0.3
-        scaleAnimation.toValue = 1.0
-        scaleAnimation.duration = 0.4
-        scaleAnimation.damping = 15.0
-        scaleAnimation.stiffness = 300.0
-        scaleAnimation.initialVelocity = 0.0
-
-        // Smooth opacity fade-in
+        // 快速透明度动画
         let opacityAnimation = CABasicAnimation(keyPath: "opacity")
         opacityAnimation.fromValue = 0.0
         opacityAnimation.toValue = 1.0
-        opacityAnimation.duration = 0.25
+        opacityAnimation.duration = 0.12  // 很快的透明度变化
         opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
 
-        // Add subtle rotation for more dynamic feel
-        let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
-        rotationAnimation.fromValue = -0.1
-        rotationAnimation.toValue = 0.0
-        rotationAnimation.duration = 0.4
-        rotationAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        // 轻微的缩放效果，让出现不那么突兀
+        let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnimation.fromValue = 0.9
+        scaleAnimation.toValue = 1.0
+        scaleAnimation.duration = 0.15  // 快速缩放
+        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
 
-        layer?.add(scaleAnimation, forKey: "scaleAppear")
         layer?.add(opacityAnimation, forKey: "opacityAppear")
-        layer?.add(rotationAnimation, forKey: "rotationAppear")
+        layer?.add(scaleAnimation, forKey: "scaleAppear")
 
         layer?.transform = CATransform3DIdentity
         layer?.opacity = 1.0
@@ -560,37 +574,39 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     
     func animateDisappearance(completion: @escaping () -> Void) {
         CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
+        CATransaction.setCompletionBlock { [weak self] in
+            // 动画完成后重置为初始隐藏状态，准备下次显示
+            self?.resetToInitialState()
+            completion()
+        }
 
-        // Quick scale down with ease-in timing
-        let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
-        scaleAnimation.fromValue = 1.0
-        scaleAnimation.toValue = 0.2
-        scaleAnimation.duration = 0.2
-        scaleAnimation.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 1.0, 1.0)
-
-        // Fast opacity fade-out
+        // 快速透明度消失
         let opacityAnimation = CABasicAnimation(keyPath: "opacity")
         opacityAnimation.fromValue = 1.0
         opacityAnimation.toValue = 0.0
-        opacityAnimation.duration = 0.15
+        opacityAnimation.duration = 0.1  // 很快的消失
         opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
 
-        // Slight rotation for dynamic exit
-        let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
-        rotationAnimation.fromValue = 0.0
-        rotationAnimation.toValue = 0.05
-        rotationAnimation.duration = 0.2
-        rotationAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        // 轻微缩小，让消失更自然
+        let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
+        scaleAnimation.fromValue = 1.0
+        scaleAnimation.toValue = 0.9
+        scaleAnimation.duration = 0.1
+        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
 
-        layer?.add(scaleAnimation, forKey: "scaleDisappear")
         layer?.add(opacityAnimation, forKey: "opacityDisappear")
-        layer?.add(rotationAnimation, forKey: "rotationDisappear")
+        layer?.add(scaleAnimation, forKey: "scaleDisappear")
 
-        layer?.transform = CATransform3DMakeScale(0.2, 0.2, 1.0)
+        layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
         layer?.opacity = 0.0
 
         CATransaction.commit()
+    }
+
+    /// 重置视图到初始隐藏状态
+    private func resetToInitialState() {
+        layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
+        layer?.opacity = 0.0
     }
 
     func animateClickFeedback() {

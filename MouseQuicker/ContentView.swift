@@ -10,10 +10,19 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "circle.grid.3x3")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-                .font(.system(size: 48))
+            // 使用应用图标而不是系统符号
+            if let appIcon = NSImage(named: "AppIcon") {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 64, height: 64)
+            } else {
+                // 后备方案
+                Image(systemName: "circle.grid.3x3")
+                    .imageScale(.large)
+                    .foregroundStyle(.tint)
+                    .font(.system(size: 48))
+            }
 
             Text("MouseQuicker")
                 .font(.title)

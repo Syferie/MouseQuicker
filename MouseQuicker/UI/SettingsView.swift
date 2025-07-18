@@ -216,21 +216,30 @@ struct ProductHeaderView: View {
         VStack(spacing: 12) {
             // App Icon and Name
             HStack(spacing: 16) {
-                // App Icon placeholder - you can replace with actual app icon
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [.blue, .purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                // 使用真实的应用图标
+                if let appIcon = NSImage(named: "AppIcon") {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                } else {
+                    // 后备方案：渐变背景 + 系统符号
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 64, height: 64)
-                    .overlay(
-                        Image(systemName: "cursorarrow.click.2")
-                            .font(.system(size: 28, weight: .medium))
-                            .foregroundColor(.white)
-                    )
+                        .frame(width: 64, height: 64)
+                        .overlay(
+                            Image(systemName: "cursorarrow.click.2")
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundColor(.white)
+                        )
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("MouseQuicker")
