@@ -18,14 +18,16 @@ struct EditShortcutView: View {
     @State private var title: String
     @State private var recordedShortcut: KeyboardShortcut?
     @State private var selectedIcon: IconType?
+    @State private var selectedExecutionMode: ShortcutExecutionMode
     @State private var showingError = false
     @State private var errorMessage = ""
-    
+
     init(shortcutItem: ShortcutItem) {
         self.shortcutItem = shortcutItem
         self._title = State(initialValue: shortcutItem.title)
         self._recordedShortcut = State(initialValue: shortcutItem.shortcut)
         self._selectedIcon = State(initialValue: IconType.sfSymbol(shortcutItem.iconName))
+        self._selectedExecutionMode = State(initialValue: shortcutItem.executionMode)
     }
     
     var body: some View {
@@ -87,7 +89,7 @@ struct EditShortcutView: View {
                     .font(.headline)
                     .foregroundColor(.primary)
                 
-                ShortcutRecorderView(recordedShortcut: $recordedShortcut)
+                EnhancedShortcutRecorderView(recordedShortcut: $recordedShortcut)
                     .frame(maxWidth: .infinity)
             }
             
@@ -98,6 +100,15 @@ struct EditShortcutView: View {
                     .foregroundColor(.primary)
 
                 ModernIconPickerView(selectedIcon: $selectedIcon)
+            }
+
+            // Execution mode selector
+            VStack(alignment: .leading, spacing: 8) {
+                Text("执行模式")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                ExecutionModeSelector(selectedMode: $selectedExecutionMode)
             }
         }
     }
@@ -154,7 +165,8 @@ struct EditShortcutView: View {
         let updatedItem = shortcutItem.with(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             shortcut: shortcut,
-            iconName: iconName
+            iconName: iconName,
+            executionMode: selectedExecutionMode
         )
         
         // Save to config

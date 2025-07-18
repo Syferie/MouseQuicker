@@ -138,6 +138,38 @@ struct KeyboardShortcut: Codable, Hashable {
     }
 }
 
+// MARK: - ShortcutExecutionMode
+
+/// Defines how a shortcut should be executed
+enum ShortcutExecutionMode: String, Codable, CaseIterable {
+    case global = "global"           // 全局执行，发送到系统
+    case targetApp = "targetApp"     // 应用内执行，发送到目标应用
+
+    /// Display name for the execution mode
+    var displayName: String {
+        switch self {
+        case .global: return "全局执行"
+        case .targetApp: return "应用内执行"
+        }
+    }
+
+    /// Description of the execution mode
+    var description: String {
+        switch self {
+        case .global: return "快捷键将在系统级别触发，可以激活其他应用的功能"
+        case .targetApp: return "快捷键将在当前应用内执行，适用于复制、粘贴等操作"
+        }
+    }
+
+    /// Icon for the execution mode
+    var icon: String {
+        switch self {
+        case .global: return "globe"
+        case .targetApp: return "app.badge"
+        }
+    }
+}
+
 // MARK: - ShortcutItem
 
 /// Represents a single shortcut item in the pie menu
@@ -147,23 +179,26 @@ struct ShortcutItem: Codable, Identifiable, Hashable {
     let shortcut: KeyboardShortcut
     let iconName: String
     let isEnabled: Bool
-    
-    init(id: UUID = UUID(), title: String, shortcut: KeyboardShortcut, iconName: String, isEnabled: Bool = true) {
+    let executionMode: ShortcutExecutionMode  // 新增：执行模式
+
+    init(id: UUID = UUID(), title: String, shortcut: KeyboardShortcut, iconName: String, isEnabled: Bool = true, executionMode: ShortcutExecutionMode = .targetApp) {
         self.id = id
         self.title = title
         self.shortcut = shortcut
         self.iconName = iconName
         self.isEnabled = isEnabled
+        self.executionMode = executionMode
     }
     
     /// Create a copy with modified properties
-    func with(title: String? = nil, shortcut: KeyboardShortcut? = nil, iconName: String? = nil, isEnabled: Bool? = nil) -> ShortcutItem {
+    func with(title: String? = nil, shortcut: KeyboardShortcut? = nil, iconName: String? = nil, isEnabled: Bool? = nil, executionMode: ShortcutExecutionMode? = nil) -> ShortcutItem {
         return ShortcutItem(
             id: self.id,
             title: title ?? self.title,
             shortcut: shortcut ?? self.shortcut,
             iconName: iconName ?? self.iconName,
-            isEnabled: isEnabled ?? self.isEnabled
+            isEnabled: isEnabled ?? self.isEnabled,
+            executionMode: executionMode ?? self.executionMode
         )
     }
 }
@@ -210,11 +245,11 @@ struct AppConfig: Codable {
     /// Default configuration with sample shortcuts
     static let `default`: AppConfig = {
         let sampleShortcuts = [
-            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc"),
-            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard"),
-            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward"),
-            ShortcutItem(title: "重做", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command, .shift]), iconName: "arrow.uturn.forward"),
-            ShortcutItem(title: "保存", shortcut: KeyboardShortcut(primaryKey: .s, modifiers: [.command]), iconName: "square.and.arrow.down")
+            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc", executionMode: .targetApp),
+            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard", executionMode: .targetApp),
+            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward", executionMode: .targetApp),
+            ShortcutItem(title: "重做", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command, .shift]), iconName: "arrow.uturn.forward", executionMode: .targetApp),
+            ShortcutItem(title: "保存", shortcut: KeyboardShortcut(primaryKey: .s, modifiers: [.command]), iconName: "square.and.arrow.down", executionMode: .targetApp)
         ]
         
         return AppConfig(shortcutItems: sampleShortcuts)

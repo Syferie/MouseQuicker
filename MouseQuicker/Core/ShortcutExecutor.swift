@@ -84,8 +84,15 @@ class ShortcutExecutor: ShortcutExecutorProtocol {
             return false
         }
 
-        print("ShortcutExecutor: Executing shortcut item '\(item.title)': \(item.shortcut.displayString)")
-        return execute(item.shortcut)
+        print("ShortcutExecutor: Executing shortcut item '\(item.title)': \(item.shortcut.displayString) in \(item.executionMode.displayName) mode")
+
+        // 根据执行模式决定如何执行
+        switch item.executionMode {
+        case .global:
+            return execute(item.shortcut)  // 全局执行
+        case .targetApp:
+            return execute(item.shortcut)  // 应用内执行（无目标应用时的默认行为）
+        }
     }
 
     func executeShortcutItem(_ item: ShortcutItem, targetApplication: NSRunningApplication) -> Bool {
@@ -94,8 +101,15 @@ class ShortcutExecutor: ShortcutExecutorProtocol {
             return false
         }
 
-        print("ShortcutExecutor: Executing shortcut item '\(item.title)': \(item.shortcut.displayString) for app: \(targetApplication.localizedName ?? "Unknown")")
-        return execute(item.shortcut, targetApplication: targetApplication)
+        print("ShortcutExecutor: Executing shortcut item '\(item.title)': \(item.shortcut.displayString) in \(item.executionMode.displayName) mode for app: \(targetApplication.localizedName ?? "Unknown")")
+
+        // 根据执行模式决定如何执行
+        switch item.executionMode {
+        case .global:
+            return execute(item.shortcut)  // 全局执行，忽略目标应用
+        case .targetApp:
+            return execute(item.shortcut, targetApplication: targetApplication)  // 应用内执行
+        }
     }
     
     // MARK: - Private Implementation

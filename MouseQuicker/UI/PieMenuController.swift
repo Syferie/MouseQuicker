@@ -216,9 +216,9 @@ extension PieMenuController {
     /// Show a test menu with sample items
     func showTestMenu(at location: NSPoint) {
         let testItems = [
-            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc"),
-            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard"),
-            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward")
+            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc", executionMode: .targetApp),
+            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard", executionMode: .targetApp),
+            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward", executionMode: .targetApp)
         ]
         
         showMenu(at: location, with: testItems)

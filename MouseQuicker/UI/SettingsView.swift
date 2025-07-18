@@ -515,6 +515,21 @@ struct ModernShortcutItemRow: View {
                                 .fill(item.isEnabled ? Color.secondary : Color.secondary.opacity(0.5))
                         )
 
+                    // Execution mode indicator
+                    HStack(spacing: 4) {
+                        Image(systemName: item.executionMode.icon)
+                            .font(.system(size: 10))
+                        Text(item.executionMode.displayName)
+                            .font(.system(.caption2, design: .rounded))
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.secondary.opacity(0.1))
+                    )
+
                     // Status indicator
                     if !item.isEnabled {
                         Text("已禁用")
@@ -977,6 +992,7 @@ struct AddShortcutView: View {
     @State private var title = ""
     @State private var recordedShortcut: KeyboardShortcut?
     @State private var selectedIcon: IconType? = IconType.sfSymbol("keyboard")
+    @State private var selectedExecutionMode: ShortcutExecutionMode = .targetApp
     @State private var showingError = false
     @State private var errorMessage = ""
 
@@ -1039,7 +1055,7 @@ struct AddShortcutView: View {
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                ShortcutRecorderView(recordedShortcut: $recordedShortcut)
+                EnhancedShortcutRecorderView(recordedShortcut: $recordedShortcut)
                     .frame(maxWidth: .infinity)
             }
 
@@ -1050,6 +1066,15 @@ struct AddShortcutView: View {
                     .foregroundColor(.primary)
 
                 ModernIconPickerView(selectedIcon: $selectedIcon)
+            }
+
+            // Execution mode selector
+            VStack(alignment: .leading, spacing: 8) {
+                Text("执行模式")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                ExecutionModeSelector(selectedMode: $selectedExecutionMode)
             }
         }
     }
@@ -1105,7 +1130,8 @@ struct AddShortcutView: View {
         let item = ShortcutItem(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             shortcut: shortcut,
-            iconName: iconName
+            iconName: iconName,
+            executionMode: selectedExecutionMode
         )
 
         do {
@@ -1119,6 +1145,65 @@ struct AddShortcutView: View {
     private func showError(_ message: String) {
         errorMessage = message
         showingError = true
+    }
+}
+
+// MARK: - Execution Mode Selector
+
+struct ExecutionModeSelector: View {
+    @Binding var selectedMode: ShortcutExecutionMode
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ForEach(ShortcutExecutionMode.allCases, id: \.self) { mode in
+                executionModeButton(mode)
+            }
+        }
+    }
+
+    private func executionModeButton(_ mode: ShortcutExecutionMode) -> some View {
+        Button(action: {
+            selectedMode = mode
+        }) {
+            HStack(spacing: 12) {
+                // Icon
+                Image(systemName: mode.icon)
+                    .font(.title3)
+                    .foregroundColor(selectedMode == mode ? .white : .accentColor)
+                    .frame(width: 24, height: 24)
+
+                // Content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(mode.displayName)
+                        .font(.headline)
+                        .foregroundColor(selectedMode == mode ? .white : .primary)
+
+                    Text(mode.description)
+                        .font(.caption)
+                        .foregroundColor(selectedMode == mode ? .white.opacity(0.8) : .secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                // Selection indicator
+                if selectedMode == mode {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(selectedMode == mode ? Color.accentColor : Color(NSColor.controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(selectedMode == mode ? Color.clear : Color.accentColor.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
