@@ -91,7 +91,8 @@ class EventMonitor: EventMonitorProtocol {
     }
     
     func updateTriggerDuration(_ duration: TimeInterval) {
-        triggerDuration = max(0.3, min(0.5, duration))
+        triggerDuration = max(0.1, min(1.0, duration))
+        print("EventMonitor: Updated trigger duration to \(triggerDuration)")
     }
     
     // MARK: - Private Event Handling

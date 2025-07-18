@@ -175,13 +175,13 @@ struct MenuAppearance: Codable {
     let transparency: Double
     let accentColor: String
     let menuSize: CGFloat
-    
+
     init(transparency: Double = 0.7, accentColor: String = "systemBlue", menuSize: CGFloat = 200.0) {
         self.transparency = transparency
         self.accentColor = accentColor
         self.menuSize = menuSize
     }
-    
+
     /// Default appearance
     static let `default` = MenuAppearance()
 }
@@ -204,7 +204,7 @@ struct AppConfig: Codable {
     
     /// Validate the configuration
     var isValid: Bool {
-        return triggerDuration >= 0.3 && triggerDuration <= 0.5 && shortcutItems.count <= 10
+        return triggerDuration >= 0.1 && triggerDuration <= 1.0 && shortcutItems.count <= 10
     }
     
     /// Default configuration with sample shortcuts

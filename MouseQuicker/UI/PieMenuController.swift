@@ -97,6 +97,11 @@ class PieMenuController: NSObject, PieMenuControllerProtocol {
         currentMenuItems = items
         menuWindow?.menuView.updateMenuItems(items)
     }
+
+    func updateMenuAppearance(_ appearance: MenuAppearance) {
+        menuWindow?.menuView.updateAppearance(appearance)
+        print("PieMenuController: Updated menu appearance - transparency: \(appearance.transparency), size: \(appearance.menuSize)")
+    }
     
     // MARK: - Private Methods
     

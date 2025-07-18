@@ -96,21 +96,8 @@ struct EditShortcutView: View {
                 Text("图标")
                     .font(.headline)
                     .foregroundColor(.primary)
-                
-                HStack {
-                    IconPickerButton(selectedIcon: $selectedIcon)
-                    
-                    Spacer()
-                    
-                    // Icon preview
-                    if let iconType = selectedIcon,
-                       let nsImage = IconManager.shared.getIcon(type: iconType, size: 24) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                    }
-                }
+
+                ModernIconPickerView(selectedIcon: $selectedIcon)
             }
         }
     }
@@ -184,6 +171,73 @@ struct EditShortcutView: View {
     private func showError(_ message: String) {
         errorMessage = message
         showingError = true
+    }
+}
+
+// MARK: - Modern Icon Picker View
+
+struct ModernIconPickerView: View {
+    @Binding var selectedIcon: IconType?
+    @State private var showingIconPicker = false
+
+    var body: some View {
+        Button(action: {
+            showingIconPicker = true
+        }) {
+            HStack(spacing: 12) {
+                // Icon preview with background
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.blue.opacity(0.1))
+                        .frame(width: 40, height: 40)
+
+                    if let iconType = selectedIcon,
+                       let nsImage = IconManager.shared.getIcon(type: iconType, size: 20) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(.blue)
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                // Text content
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedIcon != nil ? "已选择图标" : "选择图标")
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+
+                    Text("点击更换图标")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Arrow indicator
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(NSColor.controlBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showingIconPicker) {
+            IconPickerView(selectedIcon: $selectedIcon)
+        }
     }
 }
 

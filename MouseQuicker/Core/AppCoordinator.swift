@@ -61,6 +61,11 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
             // Load configuration
             currentConfig = configManager.loadConfiguration()
 
+            // Apply configuration to components
+            if let config = currentConfig {
+                applyConfiguration(config)
+            }
+
             // Start event monitoring
             try eventMonitor?.startMonitoring()
 
@@ -124,9 +129,14 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     private func applyConfiguration(_ config: AppConfig) {
         // Update trigger duration
         eventMonitor?.updateTriggerDuration(config.triggerDuration)
-        
+
         // Update menu items in pie menu controller
         pieMenuController?.updateMenuItems(config.shortcutItems)
+
+        // Update menu appearance
+        pieMenuController?.updateMenuAppearance(config.menuAppearance)
+
+        print("AppCoordinator: Applied configuration - trigger: \(config.triggerDuration), items: \(config.shortcutItems.count), transparency: \(config.menuAppearance.transparency), size: \(config.menuAppearance.menuSize)")
     }
     
     // MARK: - Private Setup

@@ -153,7 +153,7 @@ struct GeneralSettingsView: View {
                                         try? configManager.updateTriggerDuration(newValue)
                                     }
                                 ),
-                                in: 0.3...0.5,
+                                in: 0.1...1.0,
                                 step: 0.1
                             )
                             .accentColor(.blue)
@@ -363,65 +363,166 @@ struct ShortcutsSettingsView: View {
     @State private var showingAddShortcut = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text("快捷键配置")
-                    .font(.title2)
-                Spacer()
-                Button("添加快捷键") {
-                    showingAddShortcut = true
-                }
-            }
-            .padding(.top)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Shortcuts List
+                ModernGroupBox(title: "快捷键列表", icon: "command") {
+                    VStack(spacing: 12) {
+                        // Header with Add Button
+                        HStack {
+                            Text("已配置的快捷键")
+                                .font(.system(.body, design: .rounded))
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
 
-            // Shortcuts List
-            List {
-                ForEach(configManager.currentConfig.shortcutItems) { item in
-                    ShortcutItemRow(item: item)
-                }
-            }
-            .frame(minHeight: 300)
+                            Spacer()
 
-            Spacer()
+                            Button(action: {
+                                showingAddShortcut = true
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text("添加")
+                                        .font(.system(.body, design: .rounded))
+                                        .fontWeight(.medium)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.blue)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+
+                        if configManager.currentConfig.shortcutItems.isEmpty {
+                            // Empty State
+                            VStack(spacing: 12) {
+                                Image(systemName: "command.circle")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.secondary.opacity(0.5))
+
+                                Text("暂无快捷键")
+                                    .font(.system(.headline, design: .rounded))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+
+                                Text("点击上方「添加」按钮来创建您的第一个快捷键")
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, 40)
+                        } else {
+                            // Shortcuts List
+                            LazyVStack(spacing: 8) {
+                                ForEach(configManager.currentConfig.shortcutItems) { item in
+                                    ModernShortcutItemRow(item: item)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Usage Tips
+                ModernGroupBox(title: "使用提示", icon: "lightbulb") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        TipRow(
+                            icon: "hand.point.up",
+                            title: "打开菜单",
+                            description: "按住鼠标中键等待触发时间后显示菜单"
+                        )
+
+                        Divider()
+
+                        TipRow(
+                            icon: "hand.tap",
+                            title: "选择快捷键",
+                            description: "移动鼠标到对应区域，左键点击即可执行"
+                        )
+
+                        Divider()
+
+                        TipRow(
+                            icon: "escape",
+                            title: "取消操作",
+                            description: "按 ESC 键或点击菜单外任意区域可取消"
+                        )
+                    }
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding(24)
         }
-        .padding()
         .sheet(isPresented: $showingAddShortcut) {
             AddShortcutView()
         }
     }
 }
 
-struct ShortcutItemRow: View {
+struct ModernShortcutItemRow: View {
     let item: ShortcutItem
     @ObservedObject private var configManager = ConfigManager.shared
     @State private var showingEditSheet = false
+    @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Icon
-            Image(systemName: item.iconName)
-                .frame(width: 24, height: 24)
-                .foregroundColor(.accentColor)
+        HStack(spacing: 16) {
+            // Icon with background
+            ZStack {
+                Circle()
+                    .fill(item.isEnabled ? Color.blue.opacity(0.1) : Color.secondary.opacity(0.1))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: item.iconName)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(item.isEnabled ? .blue : .secondary)
+            }
 
             // Content
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.semibold)
+                    .foregroundColor(item.isEnabled ? .primary : .secondary)
 
-                Text(item.shortcut.displayString)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(4)
+                HStack(spacing: 8) {
+                    // Shortcut display
+                    Text(item.shortcut.displayString)
+                        .font(.system(.caption, design: .monospaced))
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(item.isEnabled ? Color.secondary : Color.secondary.opacity(0.5))
+                        )
+
+                    // Status indicator
+                    if !item.isEnabled {
+                        Text("已禁用")
+                            .font(.system(.caption, design: .rounded))
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.orange.opacity(0.1))
+                            )
+                    }
+                }
             }
 
             Spacer()
 
             // Controls
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 // Enable/Disable toggle
                 Toggle("", isOn: Binding(
                     get: { item.isEnabled },
@@ -430,43 +531,93 @@ struct ShortcutItemRow: View {
                         try? configManager.updateShortcutItem(updatedItem)
                     }
                 ))
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
                 .help(item.isEnabled ? "禁用快捷键" : "启用快捷键")
 
-                // Edit button
-                Button(action: {
-                    showingEditSheet = true
-                }) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 12))
-                }
-                .buttonStyle(PlainButtonStyle())
-                .foregroundColor(.accentColor)
-                .help("编辑快捷键")
+                // Action buttons (show on hover or always on mobile)
+                HStack(spacing: 8) {
+                    // Edit button
+                    Button(action: {
+                        showingEditSheet = true
+                    }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.blue)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                Circle()
+                                    .fill(Color.blue.opacity(0.1))
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("编辑快捷键")
 
-                // Delete button
-                Button(action: {
-                    try? configManager.removeShortcutItem(id: item.id)
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
+                    // Delete button
+                    Button(action: {
+                        try? configManager.removeShortcutItem(id: item.id)
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.red)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                Circle()
+                                    .fill(Color.red.opacity(0.1))
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("删除快捷键")
                 }
-                .buttonStyle(PlainButtonStyle())
-                .foregroundColor(.red)
-                .help("删除快捷键")
+                .opacity(isHovered ? 1.0 : 0.7)
+                .animation(.easeInOut(duration: 0.2), value: isHovered)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 4)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.clear)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isHovered ? Color.blue.opacity(0.3) : Color(NSColor.separatorColor),
+                            lineWidth: isHovered ? 1.5 : 0.5
+                        )
                 )
         )
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
         .sheet(isPresented: $showingEditSheet) {
             EditShortcutView(shortcutItem: item)
+        }
+    }
+}
+
+struct TipRow: View {
+    let icon: String
+    let title: String
+    let description: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.blue)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.semibold)
+
+                Text(description)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
         }
     }
 }
@@ -477,57 +628,120 @@ struct AppearanceSettingsView: View {
     @ObservedObject private var configManager = ConfigManager.shared
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("外观设置")
-                .font(.title2)
-                .padding(.top)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Menu Appearance
+                ModernGroupBox(title: "菜单外观", icon: "circle.grid.2x2") {
+                    VStack(spacing: 16) {
+                        // Transparency
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("透明度")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Text("\(Int(configManager.currentConfig.menuAppearance.transparency * 100))%")
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
 
-            GroupBox("菜单外观") {
-                VStack(alignment: .leading, spacing: 15) {
-                    // Transparency
-                    VStack(alignment: .leading) {
-                        Text("透明度: \(Int(configManager.currentConfig.menuAppearance.transparency * 100))%")
-                        Slider(
-                            value: Binding(
-                                get: { configManager.currentConfig.menuAppearance.transparency },
-                                set: { newValue in
-                                    let newAppearance = MenuAppearance(
-                                        transparency: newValue,
-                                        accentColor: configManager.currentConfig.menuAppearance.accentColor,
-                                        menuSize: configManager.currentConfig.menuAppearance.menuSize
-                                    )
-                                    try? configManager.updateMenuAppearance(newAppearance)
-                                }
-                            ),
-                            in: 0.3...1.0
-                        )
-                    }
+                            Slider(
+                                value: Binding(
+                                    get: { configManager.currentConfig.menuAppearance.transparency },
+                                    set: { newValue in
+                                        print("AppearanceSettings: Updating transparency to \(newValue)")
+                                        updateMenuAppearance(transparency: newValue)
+                                    }
+                                ),
+                                in: 0.3...1.0,
+                                step: 0.05
+                            )
+                            .accentColor(.blue)
+                        }
 
-                    // Menu Size
-                    VStack(alignment: .leading) {
-                        Text("菜单大小: \(Int(configManager.currentConfig.menuAppearance.menuSize))")
-                        Slider(
-                            value: Binding(
-                                get: { configManager.currentConfig.menuAppearance.menuSize },
-                                set: { newValue in
-                                    let newAppearance = MenuAppearance(
-                                        transparency: configManager.currentConfig.menuAppearance.transparency,
-                                        accentColor: configManager.currentConfig.menuAppearance.accentColor,
-                                        menuSize: newValue
-                                    )
-                                    try? configManager.updateMenuAppearance(newAppearance)
-                                }
-                            ),
-                            in: 150...300
-                        )
+                        Divider()
+
+                        // Menu Size
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("菜单大小")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Text("\(Int(configManager.currentConfig.menuAppearance.menuSize))")
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Slider(
+                                value: Binding(
+                                    get: { configManager.currentConfig.menuAppearance.menuSize },
+                                    set: { newValue in
+                                        print("AppearanceSettings: Updating menu size to \(newValue)")
+                                        updateMenuAppearance(menuSize: newValue)
+                                    }
+                                ),
+                                in: 150...300,
+                                step: 10
+                            )
+                            .accentColor(.blue)
+                        }
                     }
                 }
-                .padding()
-            }
 
-            Spacer()
+                // Preview
+                ModernGroupBox(title: "预览", icon: "eye") {
+                    VStack(spacing: 12) {
+                        Text("菜单预览")
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.medium)
+
+                        // Simple preview circle
+                        Circle()
+                            .fill(Color.blue.opacity(configManager.currentConfig.menuAppearance.transparency))
+                            .frame(width: configManager.currentConfig.menuAppearance.menuSize / 3,
+                                   height: configManager.currentConfig.menuAppearance.menuSize / 3)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.blue, lineWidth: 2)
+                            )
+
+                        VStack(spacing: 4) {
+                            Text("实际大小: \(Int(configManager.currentConfig.menuAppearance.menuSize))px")
+                                .font(.system(.caption, design: .rounded))
+                                .foregroundColor(.secondary)
+                            Text("透明度: \(Int(configManager.currentConfig.menuAppearance.transparency * 100))%")
+                                .font(.system(.caption, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding(24)
         }
-        .padding()
+    }
+
+    private func updateMenuAppearance(
+        transparency: Double? = nil,
+        menuSize: Double? = nil
+    ) {
+        let currentAppearance = configManager.currentConfig.menuAppearance
+        let newAppearance = MenuAppearance(
+            transparency: transparency ?? currentAppearance.transparency,
+            accentColor: currentAppearance.accentColor,
+            menuSize: menuSize ?? currentAppearance.menuSize
+        )
+
+        print("AppearanceSettings: Creating new appearance - transparency: \(newAppearance.transparency), size: \(newAppearance.menuSize)")
+
+        do {
+            try configManager.updateMenuAppearance(newAppearance)
+            print("AppearanceSettings: Successfully updated menu appearance")
+        } catch {
+            print("AppearanceSettings: Failed to update menu appearance: \(error)")
+        }
     }
 }
 

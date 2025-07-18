@@ -28,9 +28,17 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
     private var sectors: [PieMenuSector] = []
     private var trackingArea: NSTrackingArea?
-    private let menuRadius: CGFloat = 120.0
-    private let innerRadius: CGFloat = 35.0
+    private var menuRadius: CGFloat = 120.0
+    private var innerRadius: CGFloat = 35.0
     private let sectorPadding: CGFloat = 2.0
+
+    // Appearance settings
+    private var menuAppearance: MenuAppearance = .default {
+        didSet {
+            updateMenuSize()
+            needsDisplay = true
+        }
+    }
 
     // Performance optimization: cache frequently used values
     private var cachedCenter: CGPoint = .zero
@@ -145,8 +153,8 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         // Create simple dark transparent background like Pie Menu (no gradient!)
         context.saveGState()
 
-        // Use single dark transparent color like Pie Menu
-        let backgroundColor = CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.8)
+        // Use configured transparency
+        let backgroundColor = CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: menuAppearance.transparency)
 
         // Draw simple solid circle like Pie Menu
         context.addArc(center: center, radius: menuRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
@@ -451,9 +459,24 @@ class PieMenuView: NSView, PieMenuViewProtocol {
     }
     
     // MARK: - PieMenuViewProtocol Implementation
-    
+
     func updateMenuItems(_ items: [ShortcutItem]) {
         menuItems = items
+    }
+
+    func updateAppearance(_ appearance: MenuAppearance) {
+        menuAppearance = appearance
+        print("PieMenuView: Updated appearance - transparency: \(appearance.transparency), size: \(appearance.menuSize)")
+    }
+
+    private func updateMenuSize() {
+        // Update menu radius based on appearance settings
+        let baseRadius: CGFloat = 100.0
+        let sizeMultiplier = menuAppearance.menuSize / 200.0 // 200 is the default size
+        menuRadius = baseRadius * sizeMultiplier
+        innerRadius = menuRadius * 0.3 // Keep inner radius proportional
+
+        print("PieMenuView: Updated menu size - radius: \(menuRadius), inner: \(innerRadius)")
     }
     
     func animateAppearance(completion: @escaping () -> Void) {

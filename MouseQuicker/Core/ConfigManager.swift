@@ -100,7 +100,8 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
     
     func validateConfiguration(_ config: AppConfig) -> Bool {
         // Check trigger duration
-        guard config.triggerDuration >= 0.3 && config.triggerDuration <= 0.5 else {
+        guard config.triggerDuration >= 0.1 && config.triggerDuration <= 1.0 else {
+            print("ConfigManager: Validation failed - invalid trigger duration: \(config.triggerDuration)")
             return false
         }
         
