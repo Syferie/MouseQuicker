@@ -69,8 +69,18 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
 
+        // Load current configuration on initialization
+        loadCurrentConfiguration()
+
         setupTrackingArea()
         setupKeyboardMonitoring()
+    }
+
+    private func loadCurrentConfiguration() {
+        // Get current configuration from ConfigManager
+        let currentConfig = ConfigManager.shared.currentConfig
+        menuAppearance = currentConfig.menuAppearance
+        print("PieMenuView: Loaded configuration on init - transparency: \(menuAppearance.transparency), size: \(menuAppearance.menuSize)")
     }
     
     // MARK: - View Lifecycle
@@ -211,8 +221,17 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         context.addArc(center: center, radius: sectorOuterRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
         context.closePath()
 
-        // Very subtle fill for normal state
-        context.setFillColor(NSColor.controlColor.withAlphaComponent(0.1).cgColor)
+        // Layer-specific fill colors - keeping consistent black tones
+        let fillColor: CGColor
+        switch layer {
+        case .inner:
+            // 内层：深黑色，非常透明
+            fillColor = CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.08)
+        case .outer:
+            // 外层：比内层稍深一些，但保持适当对比度
+            fillColor = CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.15)
+        }
+        context.setFillColor(fillColor)
         context.fillPath()
 
         // Draw subtle border lines between sectors (only within current layer)
@@ -234,8 +253,16 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         context.addArc(center: center, radius: sectorOuterRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
         context.closePath()
 
-        // Gray highlight like Pie Menu
-        let highlightColor = CGColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 0.3)
+        // Layer-specific highlight colors - maintaining black theme consistency
+        let highlightColor: CGColor
+        switch layer {
+        case .inner:
+            // 内层：深黑色高亮
+            highlightColor = CGColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 0.35)
+        case .outer:
+            // 外层：稍微浅一些的黑色高亮，但保持适当对比度
+            highlightColor = CGColor(red: 0.12, green: 0.12, blue: 0.12, alpha: 0.25)
+        }
         context.setFillColor(highlightColor)
         context.fillPath()
 
@@ -485,8 +512,9 @@ class PieMenuView: NSView, PieMenuViewProtocol {
         let sizeMultiplier = menuAppearance.menuSize / 200.0 // 200 is the default size
         menuRadius = baseRadius * sizeMultiplier
         innerRadius = menuRadius * 0.3 // Keep inner radius proportional
+        outerRadius = menuRadius * 1.7 // Keep outer radius proportional (外层半径)
 
-        print("PieMenuView: Updated menu size - radius: \(menuRadius), inner: \(innerRadius)")
+        print("PieMenuView: Updated menu size - radius: \(menuRadius), inner: \(innerRadius), outer: \(outerRadius)")
     }
     
     func animateAppearance(completion: @escaping () -> Void) {

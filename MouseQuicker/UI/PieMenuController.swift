@@ -121,10 +121,17 @@ class PieMenuController: NSObject, PieMenuControllerProtocol {
     
     private func executeShortcutItem(_ item: ShortcutItem) {
         print("PieMenuController: Executing shortcut item: \(item.title)")
-        
+
+        // Check if item is enabled
+        guard item.isEnabled else {
+            print("PieMenuController: Shortcut item '\(item.title)' is disabled, skipping execution")
+            hideMenu(animated: true)
+            return
+        }
+
         // Hide menu first
         hideMenu(animated: true)
-        
+
         // Notify delegate
         delegate?.pieMenuController(self, didSelectItem: item)
     }

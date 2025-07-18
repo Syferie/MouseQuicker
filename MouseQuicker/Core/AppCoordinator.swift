@@ -130,13 +130,14 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         // Update trigger duration
         eventMonitor?.updateTriggerDuration(config.triggerDuration)
 
-        // Update menu items in pie menu controller
-        pieMenuController?.updateMenuItems(config.shortcutItems)
+        // Update menu items in pie menu controller (filter out disabled items)
+        let enabledItems = config.shortcutItems.filter { $0.isEnabled }
+        pieMenuController?.updateMenuItems(enabledItems)
 
         // Update menu appearance
         pieMenuController?.updateMenuAppearance(config.menuAppearance)
 
-        print("AppCoordinator: Applied configuration - trigger: \(config.triggerDuration), items: \(config.shortcutItems.count), transparency: \(config.menuAppearance.transparency), size: \(config.menuAppearance.menuSize)")
+        print("AppCoordinator: Applied configuration - trigger: \(config.triggerDuration), total items: \(config.shortcutItems.count), enabled items: \(enabledItems.count), transparency: \(config.menuAppearance.transparency), size: \(config.menuAppearance.menuSize)")
     }
     
     // MARK: - Private Setup
@@ -344,7 +345,9 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     @objc private func testPieMenu() {
         guard let config = currentConfig else { return }
         let mouseLocation = NSEvent.mouseLocation
-        pieMenuController?.showMenu(at: mouseLocation, with: config.shortcutItems)
+        // Filter out disabled shortcut items
+        let enabledItems = config.shortcutItems.filter { $0.isEnabled }
+        pieMenuController?.showMenu(at: mouseLocation, with: enabledItems)
     }
     
     // MARK: - Error Handling
@@ -377,7 +380,9 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
 extension AppCoordinator: EventMonitorDelegate {
     func eventMonitor(_ monitor: EventMonitor, didDetectTriggerAt location: NSPoint) {
         guard let config = currentConfig else { return }
-        pieMenuController?.showMenu(at: location, with: config.shortcutItems)
+        // Filter out disabled shortcut items
+        let enabledItems = config.shortcutItems.filter { $0.isEnabled }
+        pieMenuController?.showMenu(at: location, with: enabledItems)
     }
     
     func eventMonitor(_ monitor: EventMonitor, didCancelTrigger: Void) {
