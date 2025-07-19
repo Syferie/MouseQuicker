@@ -12,19 +12,20 @@ import AppKit
 class EventMonitor: EventMonitorProtocol {
     
     // MARK: - Properties
-    
+
     weak var delegate: EventMonitorDelegate?
     var triggerDuration: TimeInterval = 0.4
+    var triggerButton: TriggerButton = .middle
     var isMonitoring: Bool = false
-    
+
     // MARK: - Private Properties
-    
+
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var triggerTimer: Timer?
     private var triggerStartTime: Date?
     private var triggerLocation: NSPoint = .zero
-    private var isMiddleButtonPressed = false
+    private var isTriggerButtonPressed = false
     
     // MARK: - Initialization
     
@@ -43,29 +44,54 @@ class EventMonitor: EventMonitorProtocol {
         guard !isMonitoring else {
             throw EventMonitorError.monitoringAlreadyActive
         }
-        
+
         // Check permissions
         guard PermissionManager.shared.checkAccessibilityPermission() else {
             throw EventMonitorError.accessibilityPermissionDenied
         }
-        
+
+        // Get event types for the current trigger button
+        let eventTypes = triggerButton.eventTypes
+        var eventMask: NSEvent.EventTypeMask = []
+        eventMask.insert(NSEvent.EventTypeMask(rawValue: 1 << eventTypes.down.rawValue))
+        eventMask.insert(NSEvent.EventTypeMask(rawValue: 1 << eventTypes.up.rawValue))
+        eventMask.insert(NSEvent.EventTypeMask(rawValue: 1 << eventTypes.dragged.rawValue))
+
         // Set up global event monitor for mouse events
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.otherMouseDown, .otherMouseUp, .otherMouseDragged]) { [weak self] event in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: eventMask) { [weak self] event in
             self?.handleGlobalMouseEvent(event)
         }
-        
+
         // Set up local event monitor for when app is active
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .otherMouseUp, .otherMouseDragged]) { [weak self] event in
-            self?.handleLocalMouseEvent(event)
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: eventMask) { [weak self] event in
+            guard let self = self else { return event }
+
+            self.handleLocalMouseEvent(event)
+
+            // For right-click, we need special handling to suppress the system context menu
+            if self.triggerButton == .right {
+                let eventTypes = self.triggerButton.eventTypes
+
+                // Suppress right-click down events during trigger detection
+                if event.type == eventTypes.down && event.buttonNumber == self.triggerButton.buttonNumber {
+                    return nil // Suppress the event to prevent context menu
+                }
+
+                // Also suppress right-click up events if we're in trigger mode
+                if event.type == eventTypes.up && self.isTriggerButtonPressed {
+                    return nil // Suppress to prevent delayed context menu
+                }
+            }
+
             return event
         }
-        
+
         guard globalMonitor != nil else {
             throw EventMonitorError.systemEventMonitorFailed
         }
-        
+
         isMonitoring = true
-        print("EventMonitor: Started monitoring global mouse events")
+        print("EventMonitor: Started monitoring global mouse events for \(triggerButton.displayName)")
     }
     
     func stopMonitoring() {
@@ -94,6 +120,24 @@ class EventMonitor: EventMonitorProtocol {
         triggerDuration = max(0.1, min(1.0, duration))
         print("EventMonitor: Updated trigger duration to \(triggerDuration)")
     }
+
+    func updateTriggerButton(_ button: TriggerButton) {
+        let wasMonitoring = isMonitoring
+
+        // Stop monitoring if currently active
+        if wasMonitoring {
+            stopMonitoring()
+        }
+
+        // Update the trigger button
+        triggerButton = button
+        print("EventMonitor: Updated trigger button to \(button.displayName)")
+
+        // Restart monitoring if it was active
+        if wasMonitoring {
+            try? startMonitoring()
+        }
+    }
     
     // MARK: - Private Event Handling
     
@@ -106,93 +150,118 @@ class EventMonitor: EventMonitorProtocol {
     }
     
     private func handleMouseEvent(_ event: NSEvent) {
-        // Performance optimization: early return for non-middle button events
-        guard event.buttonNumber == 2 else { return }
+        // Performance optimization: early return for non-trigger button events
+        guard event.buttonNumber == triggerButton.buttonNumber else { return }
 
         // Use performance monitoring
         withPerformanceMeasurement(label: "EventMonitor") {
+            let eventTypes = triggerButton.eventTypes
             switch event.type {
-            case .otherMouseDown:
-                handleMiddleButtonDown(event)
-            case .otherMouseUp:
-                handleMiddleButtonUp(event)
-            case .otherMouseDragged:
-                handleMiddleButtonDragged(event)
+            case eventTypes.down:
+                handleTriggerButtonDown(event)
+            case eventTypes.up:
+                handleTriggerButtonUp(event)
+            case eventTypes.dragged:
+                handleTriggerButtonDragged(event)
             default:
                 break
             }
         }
     }
     
-    private func handleMiddleButtonDown(_ event: NSEvent) {
-        guard !isMiddleButtonPressed else { return }
-        
-        isMiddleButtonPressed = true
+    private func handleTriggerButtonDown(_ event: NSEvent) {
+        guard !isTriggerButtonPressed else { return }
+
+        isTriggerButtonPressed = true
         triggerStartTime = Date()
         triggerLocation = event.locationInWindow
-        
+
         // Convert to screen coordinates
         if let window = event.window {
             triggerLocation = window.convertToScreen(NSRect(origin: triggerLocation, size: .zero)).origin
         } else {
             triggerLocation = NSEvent.mouseLocation
         }
-        
+
+        // For right-click, we need to suppress system context menu
+        if triggerButton == .right {
+            // Disable system context menu temporarily
+            suppressSystemContextMenu()
+        }
+
         // Start trigger timer
         triggerTimer = Timer.scheduledTimer(withTimeInterval: triggerDuration, repeats: false) { [weak self] _ in
             self?.triggerActivated()
         }
-        
-        print("EventMonitor: Middle button pressed at \(triggerLocation)")
+
+        print("EventMonitor: \(triggerButton.displayName) pressed at \(triggerLocation)")
     }
     
-    private func handleMiddleButtonUp(_ event: NSEvent) {
-        guard isMiddleButtonPressed else { return }
-        
+    private func handleTriggerButtonUp(_ event: NSEvent) {
+        guard isTriggerButtonPressed else { return }
+
         let wasTriggered = triggerTimer == nil // Timer was already fired
         cancelTrigger()
-        
+
         if !wasTriggered {
             // Button was released before trigger duration
             delegate?.eventMonitor(self, didCancelTrigger: ())
-            print("EventMonitor: Trigger cancelled - button released too early")
+            print("EventMonitor: Trigger cancelled - \(triggerButton.displayName) released too early")
         }
     }
     
-    private func handleMiddleButtonDragged(_ event: NSEvent) {
-        // If user drags while holding middle button, cancel the trigger
-        guard isMiddleButtonPressed else { return }
-        
+    private func handleTriggerButtonDragged(_ event: NSEvent) {
+        // If user drags while holding trigger button, cancel the trigger
+        guard isTriggerButtonPressed else { return }
+
         let currentLocation = NSEvent.mouseLocation
         let distance = sqrt(pow(currentLocation.x - triggerLocation.x, 2) + pow(currentLocation.y - triggerLocation.y, 2))
-        
+
         // Cancel if moved more than 10 pixels
         if distance > 10 {
             cancelTrigger()
             delegate?.eventMonitor(self, didCancelTrigger: ())
-            print("EventMonitor: Trigger cancelled - mouse moved too much")
+            print("EventMonitor: Trigger cancelled - mouse moved too much while holding \(triggerButton.displayName)")
         }
     }
     
     private func triggerActivated() {
-        guard isMiddleButtonPressed else { return }
-        
-        print("EventMonitor: Trigger activated at \(triggerLocation)")
-        
+        guard isTriggerButtonPressed else { return }
+
+        print("EventMonitor: Trigger activated at \(triggerLocation) with \(triggerButton.displayName)")
+
         // Clear the timer since it fired
         triggerTimer?.invalidate()
         triggerTimer = nil
-        
+
         // Notify delegate
         delegate?.eventMonitor(self, didDetectTriggerAt: triggerLocation)
     }
-    
+
     private func cancelTrigger() {
-        isMiddleButtonPressed = false
+        isTriggerButtonPressed = false
         triggerStartTime = nil
-        
+
         triggerTimer?.invalidate()
         triggerTimer = nil
+
+        // Re-enable system context menu if it was disabled
+        if triggerButton == .right {
+            restoreSystemContextMenu()
+        }
+    }
+
+    // MARK: - Right-click Context Menu Handling
+
+    private func suppressSystemContextMenu() {
+        // For right-click handling, we use a different approach
+        // We'll handle this through the local monitor return value
+        print("EventMonitor: Suppressing system context menu for right-click")
+    }
+
+    private func restoreSystemContextMenu() {
+        // Restore normal right-click behavior
+        print("EventMonitor: Restoring system context menu for right-click")
     }
     
     // MARK: - Utility Methods

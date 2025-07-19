@@ -158,6 +158,62 @@ struct GeneralSettingsView: View {
                             )
                             .accentColor(.blue)
                         }
+
+                        Divider()
+
+                        // Trigger Button Setting
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("触发按键")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Text(configManager.currentConfig.triggerButton.displayName)
+                                    .font(.system(.body, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            HStack(spacing: 12) {
+                                ForEach(TriggerButton.allCases, id: \.self) { button in
+                                    Button(action: {
+                                        try? configManager.updateTriggerButton(button)
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: button.icon)
+                                                .foregroundColor(configManager.currentConfig.triggerButton == button ? .white : .blue)
+                                            Text(button.displayName)
+                                                .font(.system(.body, design: .rounded))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(configManager.currentConfig.triggerButton == button ? .white : .primary)
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(configManager.currentConfig.triggerButton == button ? Color.blue : Color(NSColor.controlBackgroundColor))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .stroke(Color.blue.opacity(0.3), lineWidth: configManager.currentConfig.triggerButton == button ? 0 : 1)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(configManager.currentConfig.triggerButton.description)
+                                    .font(.system(.caption, design: .rounded))
+                                    .foregroundColor(.secondary)
+
+                                if configManager.currentConfig.triggerButton == .right {
+                                    Text("⚠️ 右键可能与系统右键菜单冲突，建议使用中键")
+                                        .font(.system(.caption2, design: .rounded))
+                                        .foregroundColor(.orange)
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
 
@@ -446,7 +502,7 @@ struct ShortcutsSettingsView: View {
                         TipRow(
                             icon: "hand.point.up",
                             title: "打开菜单",
-                            description: "按住鼠标中键等待触发时间后显示菜单"
+                            description: "按住设置的触发键（\(configManager.currentConfig.triggerButton.displayName)）等待触发时间后显示菜单"
                         )
 
                         Divider()

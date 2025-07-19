@@ -127,8 +127,9 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     /// Apply configuration to running components
     /// - Parameter config: Configuration to apply
     private func applyConfiguration(_ config: AppConfig) {
-        // Update trigger duration
+        // Update trigger duration and button
         eventMonitor?.updateTriggerDuration(config.triggerDuration)
+        eventMonitor?.updateTriggerButton(config.triggerButton)
 
         // Update menu items in pie menu controller (filter out disabled items)
         let enabledItems = config.shortcutItems.filter { $0.isEnabled }
@@ -137,7 +138,7 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         // Update menu appearance
         pieMenuController?.updateMenuAppearance(config.menuAppearance)
 
-        print("AppCoordinator: Applied configuration - trigger: \(config.triggerDuration), total items: \(config.shortcutItems.count), enabled items: \(enabledItems.count), transparency: \(config.menuAppearance.transparency), size: \(config.menuAppearance.menuSize)")
+        print("AppCoordinator: Applied configuration - trigger: \(config.triggerDuration)s with \(config.triggerButton.displayName), total items: \(config.shortcutItems.count), enabled items: \(enabledItems.count), transparency: \(config.menuAppearance.transparency), size: \(config.menuAppearance.menuSize)")
     }
     
     // MARK: - Private Setup

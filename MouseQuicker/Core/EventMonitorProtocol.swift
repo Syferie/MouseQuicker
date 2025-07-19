@@ -25,23 +25,30 @@ protocol EventMonitorDelegate: AnyObject {
 protocol EventMonitorProtocol: AnyObject {
     /// Delegate to receive trigger notifications
     var delegate: EventMonitorDelegate? { get set }
-    
-    /// Duration required for trigger activation (0.3-0.5 seconds)
+
+    /// Duration required for trigger activation (0.1-1.0 seconds)
     var triggerDuration: TimeInterval { get set }
-    
+
+    /// Button used for triggering
+    var triggerButton: TriggerButton { get set }
+
     /// Whether the monitor is currently active
     var isMonitoring: Bool { get }
-    
+
     /// Start monitoring for global mouse events
     /// - Throws: EventMonitorError if monitoring cannot be started
     func startMonitoring() throws
-    
+
     /// Stop monitoring for global mouse events
     func stopMonitoring()
-    
+
     /// Update the trigger duration
-    /// - Parameter duration: New duration in seconds (must be between 0.3-0.5)
+    /// - Parameter duration: New duration in seconds (must be between 0.1-1.0)
     func updateTriggerDuration(_ duration: TimeInterval)
+
+    /// Update the trigger button
+    /// - Parameter button: New trigger button to monitor
+    func updateTriggerButton(_ button: TriggerButton)
 }
 
 /// Errors that can occur during event monitoring

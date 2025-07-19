@@ -181,6 +181,7 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
         config = AppConfig(
             shortcutItems: config.shortcutItems + [item],
             triggerDuration: config.triggerDuration,
+            triggerButton: config.triggerButton,
             menuAppearance: config.menuAppearance,
             version: config.version
         )
@@ -193,6 +194,7 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
         config = AppConfig(
             shortcutItems: config.shortcutItems.filter { $0.id != id },
             triggerDuration: config.triggerDuration,
+            triggerButton: config.triggerButton,
             menuAppearance: config.menuAppearance,
             version: config.version
         )
@@ -209,6 +211,7 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
             config = AppConfig(
                 shortcutItems: items,
                 triggerDuration: config.triggerDuration,
+                triggerButton: config.triggerButton,
                 menuAppearance: config.menuAppearance,
                 version: config.version
             )
@@ -222,18 +225,33 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
         config = AppConfig(
             shortcutItems: config.shortcutItems,
             triggerDuration: duration,
+            triggerButton: config.triggerButton,
             menuAppearance: config.menuAppearance,
             version: config.version
         )
         try saveConfiguration(config)
     }
-    
+
+    /// Update trigger button
+    func updateTriggerButton(_ button: TriggerButton) throws {
+        var config = currentConfig
+        config = AppConfig(
+            shortcutItems: config.shortcutItems,
+            triggerDuration: config.triggerDuration,
+            triggerButton: button,
+            menuAppearance: config.menuAppearance,
+            version: config.version
+        )
+        try saveConfiguration(config)
+    }
+
     /// Update menu appearance
     func updateMenuAppearance(_ appearance: MenuAppearance) throws {
         var config = currentConfig
         config = AppConfig(
             shortcutItems: config.shortcutItems,
             triggerDuration: config.triggerDuration,
+            triggerButton: config.triggerButton,
             menuAppearance: appearance,
             version: config.version
         )

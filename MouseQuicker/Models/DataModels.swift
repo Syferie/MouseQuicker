@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 
 // MARK: - KeyCode and ModifierKey Enums
 
@@ -203,6 +204,63 @@ struct ShortcutItem: Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - TriggerButton
+
+/// Enumeration of supported trigger buttons
+enum TriggerButton: String, Codable, CaseIterable {
+    case left = "left"
+    case middle = "middle"
+    case right = "right"
+
+    /// Display name for the trigger button
+    var displayName: String {
+        switch self {
+        case .left: return "左键"
+        case .middle: return "中键"
+        case .right: return "右键"
+        }
+    }
+
+    /// Description of the trigger button
+    var description: String {
+        switch self {
+        case .left: return "使用鼠标左键长按触发菜单"
+        case .middle: return "使用鼠标中键长按触发菜单"
+        case .right: return "使用鼠标右键长按触发菜单"
+        }
+    }
+
+    /// Icon for the trigger button
+    var icon: String {
+        switch self {
+        case .left: return "cursorarrow.click"
+        case .middle: return "cursorarrow.click.2"
+        case .right: return "cursorarrow.click.badge.clock"
+        }
+    }
+
+    /// Button number for NSEvent
+    var buttonNumber: Int {
+        switch self {
+        case .left: return 0
+        case .middle: return 2
+        case .right: return 1
+        }
+    }
+
+    /// NSEvent types for this button
+    var eventTypes: (down: NSEvent.EventType, up: NSEvent.EventType, dragged: NSEvent.EventType) {
+        switch self {
+        case .left:
+            return (.leftMouseDown, .leftMouseUp, .leftMouseDragged)
+        case .middle:
+            return (.otherMouseDown, .otherMouseUp, .otherMouseDragged)
+        case .right:
+            return (.rightMouseDown, .rightMouseUp, .rightMouseDragged)
+        }
+    }
+}
+
 // MARK: - MenuAppearance
 
 /// Configuration for menu appearance
@@ -227,21 +285,23 @@ struct MenuAppearance: Codable {
 struct AppConfig: Codable {
     let shortcutItems: [ShortcutItem]
     let triggerDuration: TimeInterval
+    let triggerButton: TriggerButton
     let menuAppearance: MenuAppearance
     let version: String
-    
-    init(shortcutItems: [ShortcutItem] = [], triggerDuration: TimeInterval = 0.4, menuAppearance: MenuAppearance = .default, version: String = "1.0") {
+
+    init(shortcutItems: [ShortcutItem] = [], triggerDuration: TimeInterval = 0.4, triggerButton: TriggerButton = .middle, menuAppearance: MenuAppearance = .default, version: String = "1.0") {
         self.shortcutItems = shortcutItems
         self.triggerDuration = triggerDuration
+        self.triggerButton = triggerButton
         self.menuAppearance = menuAppearance
         self.version = version
     }
-    
+
     /// Validate the configuration
     var isValid: Bool {
         return triggerDuration >= 0.1 && triggerDuration <= 1.0 && shortcutItems.count <= 20
     }
-    
+
     /// Default configuration with sample shortcuts
     static let `default`: AppConfig = {
         let sampleShortcuts = [
@@ -251,7 +311,7 @@ struct AppConfig: Codable {
             ShortcutItem(title: "重做", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command, .shift]), iconName: "arrow.uturn.forward", executionMode: .targetApp),
             ShortcutItem(title: "保存", shortcut: KeyboardShortcut(primaryKey: .s, modifiers: [.command]), iconName: "square.and.arrow.down", executionMode: .targetApp)
         ]
-        
+
         return AppConfig(shortcutItems: sampleShortcuts)
     }()
 }
