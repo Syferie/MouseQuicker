@@ -9,6 +9,8 @@ import Foundation
 import AppKit
 import SwiftUI
 
+// Note: Notification names are defined in ConfigManagerProtocol.swift
+
 
 
 /// Main coordinator class that manages the application lifecycle and component interactions
@@ -157,14 +159,14 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(configurationDidChange(_:)),
-            name: .configurationDidChange,
+            name: Notification.Name("ConfigurationDidChange"),
             object: nil
         )
 
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(configurationDidImport(_:)),
-            name: .configurationDidImport,
+            name: Notification.Name("ConfigurationDidImport"),
             object: nil
         )
 

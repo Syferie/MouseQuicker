@@ -9,6 +9,60 @@ import Foundation
 import AppKit
 import QuartzCore
 
+// MARK: - PieMenuView Protocols
+
+/// Delegate protocol for PieMenuView to handle user interactions
+protocol PieMenuViewDelegate: AnyObject {
+    /// Called when a menu sector is clicked
+    /// - Parameters:
+    ///   - view: The PieMenuView instance
+    ///   - index: Index of the clicked sector
+    func pieMenuView(_ view: PieMenuView, didClickSectorAt index: Int)
+
+    /// Called when mouse enters a sector
+    /// - Parameters:
+    ///   - view: The PieMenuView instance
+    ///   - index: Index of the hovered sector
+    func pieMenuView(_ view: PieMenuView, didHoverSectorAt index: Int)
+
+    /// Called when mouse exits all sectors
+    /// - Parameter view: The PieMenuView instance
+    func pieMenuViewDidExitAllSectors(_ view: PieMenuView)
+
+    /// Called when the view requests to be dismissed (ESC key)
+    /// - Parameter view: The PieMenuView instance
+    func pieMenuViewDidRequestDismissal(_ view: PieMenuView)
+}
+
+/// Protocol defining the interface for pie menu view
+protocol PieMenuViewProtocol: AnyObject {
+    /// Delegate to receive user interaction notifications
+    var delegate: PieMenuViewDelegate? { get set }
+
+    /// Array of menu items to display
+    var menuItems: [ShortcutItem] { get set }
+
+    /// Index of currently hovered sector (-1 if none)
+    var hoveredIndex: Int { get }
+
+    /// Update the menu items and redraw
+    /// - Parameter items: New array of shortcut items
+    func updateMenuItems(_ items: [ShortcutItem])
+
+    /// Animate the menu appearance
+    /// - Parameter completion: Completion handler called when animation finishes
+    func animateAppearance(completion: @escaping () -> Void)
+
+    /// Animate the menu disappearance
+    /// - Parameter completion: Completion handler called when animation finishes
+    func animateDisappearance(completion: @escaping () -> Void)
+
+    /// Calculate which sector contains the given point
+    /// - Parameter point: Point in view coordinates
+    /// - Returns: Index of the sector, or -1 if outside all sectors
+    func sectorIndex(for point: NSPoint) -> Int
+}
+
 /// Custom NSView that renders a circular pie menu
 class PieMenuView: NSView, PieMenuViewProtocol {
     
@@ -691,7 +745,7 @@ class PieMenuView: NSView, PieMenuViewProtocol {
                     item: item,
                     startAngle: sectorStartAngle,
                     endAngle: sectorEndAngle,
-                    layer: .inner
+                    layer: MenuLayer.inner
                 )
                 sectors.append(sector)
             }
@@ -710,7 +764,7 @@ class PieMenuView: NSView, PieMenuViewProtocol {
                     item: item,
                     startAngle: sectorStartAngle,
                     endAngle: sectorEndAngle,
-                    layer: .inner
+                    layer: MenuLayer.inner
                 )
                 sectors.append(sector)
             }
@@ -725,7 +779,7 @@ class PieMenuView: NSView, PieMenuViewProtocol {
                     item: item,
                     startAngle: sectorStartAngle,
                     endAngle: sectorEndAngle,
-                    layer: .outer
+                    layer: MenuLayer.outer
                 )
                 sectors.append(sector)
             }
@@ -867,7 +921,4 @@ private struct PieMenuSector {
     let layer: MenuLayer  // 新增：标识扇形所在的层级
 }
 
-private enum MenuLayer {
-    case inner  // 内层 (0-9)
-    case outer  // 外层 (10-19)
-}
+// Note: MenuLayer is defined in PieMenuProtocols.swift

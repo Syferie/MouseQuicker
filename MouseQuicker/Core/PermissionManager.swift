@@ -8,6 +8,16 @@
 import Foundation
 import AppKit
 
+// MARK: - Global Permission Check Functions
+
+/// Check if the process is trusted for accessibility
+/// - Parameter prompt: Whether to show the permission prompt
+/// - Returns: True if the process is trusted
+func checkIsProcessTrusted(prompt: Bool = false) -> Bool {
+    let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: prompt]
+    return AXIsProcessTrustedWithOptions(options as CFDictionary)
+}
+
 /// Manager for handling system permissions required by the application
 class PermissionManager: ObservableObject {
     
@@ -20,54 +30,95 @@ class PermissionManager: ObservableObject {
     /// Track if this is the first launch
     private let isFirstLaunchKey = "MouseQuicker_FirstLaunch"
 
+    /// Cache for permission check results to avoid frequent system calls
+    private var cachedPermissionResult: Bool?
+    private var lastPermissionCheck: Date?
+    private let permissionCacheTimeout: TimeInterval = 5.0 // Cache for 5 seconds
+
     private init() {
         // Don't check permissions automatically
     }
 
     /// Check and update the current permission status (manual only)
     func updatePermissionStatus() {
-        hasAccessibilityPermission = checkAccessibilityPermission()
+        hasAccessibilityPermission = checkAccessibilityPermission(useCache: false) // Force fresh check
         print("PermissionManager: 权限状态已更新 - 辅助功能权限: \(hasAccessibilityPermission)")
+    }
+
+    /// Clear the permission cache to force a fresh check next time
+    func clearPermissionCache() {
+        cachedPermissionResult = nil
+        lastPermissionCheck = nil
+        print("PermissionManager: Permission cache cleared")
     }
     
     /// Check if accessibility permission is granted
+    /// - Parameter useCache: Whether to use cached result if available
     /// - Returns: True if permission is granted
-    func checkAccessibilityPermission() -> Bool {
-        // Use the standard accessibility check without prompting
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-        let isGranted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    func checkAccessibilityPermission(useCache: Bool = true) -> Bool {
+        // Check cache first if enabled
+        if useCache, let cachedResult = cachedPermissionResult,
+           let lastCheck = lastPermissionCheck,
+           Date().timeIntervalSince(lastCheck) < permissionCacheTimeout {
+            print("PermissionManager: Using cached permission result: \(cachedResult)")
+            return cachedResult
+        }
+
+        // Use the global function for consistency with Ice project
+        let isGranted = checkIsProcessTrusted(prompt: false)
 
         print("PermissionManager: Accessibility permission check result: \(isGranted)")
         print("PermissionManager: Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
 
-        // For unsigned apps, the permission check might fail even when permission is granted
-        // Try a secondary check by attempting to create a global event monitor
+        // Only use secondary check if the primary check fails AND we're in debug mode
+        // This reduces false positives in production
+        var finalResult = isGranted
+        #if DEBUG
         if !isGranted {
             let secondaryCheck = testGlobalEventMonitor()
             print("PermissionManager: Secondary check result: \(secondaryCheck)")
-            return secondaryCheck
+            // In debug mode, be more conservative - only return true if both checks pass
+            finalResult = secondaryCheck && isGranted
         }
+        #endif
 
-        return isGranted
+        // Cache the result
+        cachedPermissionResult = finalResult
+        lastPermissionCheck = Date()
+
+        return finalResult
     }
 
     /// Test if we can create a global event monitor (secondary permission check)
+    /// This is a more conservative check that only returns true if we can actually monitor events
     private func testGlobalEventMonitor() -> Bool {
         var canCreateMonitor = false
+        var receivedEvent = false
 
-        let monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
-            // This block won't be called if permission is denied
+        // Use a very short timeout to avoid blocking
+        let semaphore = DispatchSemaphore(value: 0)
+
+        let monitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { _ in
+            receivedEvent = true
+            semaphore.signal()
         }
 
         if let monitor = monitor {
             canCreateMonitor = true
+
+            // Wait briefly to see if we can actually receive events
+            let result = semaphore.wait(timeout: .now() + 0.1)
+
             NSEvent.removeMonitor(monitor)
-            print("PermissionManager: Successfully created and removed test monitor")
+
+            // Only consider it successful if we could both create the monitor AND receive events
+            let success = canCreateMonitor && (result == .success || receivedEvent)
+            print("PermissionManager: Test monitor - created: \(canCreateMonitor), received events: \(receivedEvent), success: \(success)")
+            return success
         } else {
             print("PermissionManager: Failed to create test monitor")
+            return false
         }
-
-        return canCreateMonitor
     }
     
 
@@ -75,8 +126,11 @@ class PermissionManager: ObservableObject {
     /// Request accessibility permission with user prompt
     func requestAccessibilityPermission() {
         print("PermissionManager: Requesting accessibility permission...")
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        let _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
+
+        // Clear cache before requesting to ensure fresh check
+        clearPermissionCache()
+
+        let _ = checkIsProcessTrusted(prompt: true)
 
         // Update status after a short delay to allow for user interaction
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

@@ -8,6 +8,52 @@
 import Foundation
 import AppKit
 
+// MARK: - PieMenuController Protocols
+
+/// Delegate protocol for PieMenuController to handle menu interactions
+protocol PieMenuControllerDelegate: AnyObject {
+    /// Called when a shortcut item is selected from the pie menu
+    /// - Parameters:
+    ///   - controller: The PieMenuController instance
+    ///   - item: The selected shortcut item
+    func pieMenuController(_ controller: PieMenuController, didSelectItem item: ShortcutItem)
+
+    /// Called when the pie menu is cancelled (ESC key or click outside)
+    /// - Parameter controller: The PieMenuController instance
+    func pieMenuControllerDidCancel(_ controller: PieMenuController)
+
+    /// Called when the pie menu is about to appear
+    /// - Parameter controller: The PieMenuController instance
+    func pieMenuControllerWillShow(_ controller: PieMenuController)
+
+    /// Called when the pie menu has been hidden
+    /// - Parameter controller: The PieMenuController instance
+    func pieMenuControllerDidHide(_ controller: PieMenuController)
+}
+
+/// Protocol defining the interface for pie menu control
+protocol PieMenuControllerProtocol: AnyObject {
+    /// Delegate to receive menu interaction notifications
+    var delegate: PieMenuControllerDelegate? { get set }
+
+    /// Whether the menu is currently visible
+    var isVisible: Bool { get }
+
+    /// Show the pie menu at the specified location
+    /// - Parameters:
+    ///   - location: Screen coordinates where to show the menu
+    ///   - items: Array of shortcut items to display
+    func showMenu(at location: NSPoint, with items: [ShortcutItem])
+
+    /// Hide the pie menu
+    /// - Parameter animated: Whether to animate the hiding
+    func hideMenu(animated: Bool)
+
+    /// Update the menu items while visible
+    /// - Parameter items: New array of shortcut items
+    func updateMenuItems(_ items: [ShortcutItem])
+}
+
 /// Controller for managing pie menu display and interactions
 class PieMenuController: NSObject, PieMenuControllerProtocol {
     
