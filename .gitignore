@@ -1,1 +1,26 @@
 dev_docs
+
+# Xcode
+build/
+*.xcarchive
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Build products
+*.app
+*.dmg
+
+# Certificates and keys
+*.p12
+*.mobileprovision
+
+# Temporary files
+.DS_Store
+*.tmp
+*.temp
+
+# Release notes
+release_notes.md

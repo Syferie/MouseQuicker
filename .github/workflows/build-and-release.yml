@@ -1,0 +1,144 @@
+name: Build and Release MouseQuicker
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.1)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整历史记录用于版本控制
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '16'
+    
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Update version in project
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        
+        # 更新 Xcode 项目中的版本号
+        sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $VERSION/g" MouseQuicker.xcodeproj/project.pbxproj
+        
+        # 更新构建号为当前时间戳
+        BUILD_NUMBER=$(date +%Y%m%d%H%M)
+        sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*/CURRENT_PROJECT_VERSION = $BUILD_NUMBER/g" MouseQuicker.xcodeproj/project.pbxproj
+        
+        echo "Updated version to $VERSION, build $BUILD_NUMBER"
+    
+    - name: Setup Code Signing (Optional)
+      env:
+        CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+        CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      run: |
+        # 只有在提供证书时才进行代码签名设置
+        if [[ -n "$CERTIFICATE_P12" ]]; then
+          echo "Setting up code signing..."
+          security create-keychain -p "temp123" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "temp123" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp123" build.keychain
+        else
+          echo "No certificate provided, skipping code signing setup"
+        fi
+    
+    - name: Build app
+      run: |
+        xcodebuild -project MouseQuicker.xcodeproj \
+          -scheme MouseQuicker \
+          -configuration Release \
+          -derivedDataPath build \
+          -archivePath build/MouseQuicker.xcarchive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          archive
+
+        # 导出应用
+        xcodebuild -exportArchive \
+          -archivePath build/MouseQuicker.xcarchive \
+          -exportPath build/export \
+          -exportOptionsPlist scripts/ExportOptions.plist
+    
+    - name: Create DMG
+      run: |
+        chmod +x scripts/create-dmg.sh
+        ./scripts/create-dmg.sh "${{ steps.get_version.outputs.VERSION }}"
+    
+    - name: Generate Release Notes
+      id: release_notes
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        
+        # 生成发布说明
+        echo "## MouseQuicker v$VERSION" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### 更新内容" >> release_notes.md
+        
+        # 获取自上次标签以来的提交
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [[ -n "$LAST_TAG" ]]; then
+          echo "自 $LAST_TAG 以来的更改:" >> release_notes.md
+          git log --pretty=format:"- %s" $LAST_TAG..HEAD >> release_notes.md
+        else
+          echo "- 初始版本发布" >> release_notes.md
+          echo "- 包含所有基础功能" >> release_notes.md
+        fi
+        
+        echo "" >> release_notes.md
+        echo "### 系统要求" >> release_notes.md
+        echo "- macOS 15.5 或更高版本" >> release_notes.md
+        echo "- 需要辅助功能和输入监控权限" >> release_notes.md
+        
+        # 输出到 GitHub Actions
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        cat release_notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Git Tag
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git tag -a "v$VERSION" -m "Release version $VERSION"
+        git push origin "v$VERSION"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.get_version.outputs.VERSION }}
+        name: MouseQuicker v${{ steps.get_version.outputs.VERSION }}
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        files: |
+          build/MouseQuicker-${{ steps.get_version.outputs.VERSION }}.dmg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        security delete-keychain build.keychain 2>/dev/null || true
+        rm -f certificate.p12 2>/dev/null || true
