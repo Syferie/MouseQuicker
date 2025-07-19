@@ -1,6 +1,22 @@
-# MouseQuicker
+<div align="center">
+  <img src="MouseQuicker/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" alt="MouseQuicker" width="128"/>
 
-一个简洁高效的 macOS 鼠标快捷键工具，通过长按鼠标中键呼出圆形菜单，快速执行常用键盘快捷键。
+  # MouseQuicker
+
+  一个简洁高效的 macOS 鼠标快捷键工具，通过长按鼠标按键呼出圆形菜单，快速执行常用键盘快捷键。
+</div>
+
+## 应用展示
+
+<div align="center">
+  <img src="img/disp_1.png" alt="圆形菜单" width="400"/>
+  <p><em>圆形菜单界面 - 单层菜单</em></p>
+</div>
+
+<div align="center">
+  <img src="img/disp_2.png" alt="圆形菜单" width="600"/>
+  <p><em>圆形菜单界面 - 双层菜单</em></p>
+</div>
 
 ## 功能特点
 
@@ -14,7 +30,7 @@
 ## 系统要求
 
 - macOS 10.15 或更高版本
-- 需要授予辅助功能和输入监控权限
+- 需要授予辅助功能权限
 
 ## 安装使用
 
@@ -23,22 +39,28 @@
 - 或者克隆源码自行编译
 
 ### 2. 权限设置
-首次运行时，系统会提示授予以下权限：
+首次运行时，应用会提示需要授予辅助功能权限：
 
 **辅助功能权限**：
 - 打开 `系统偏好设置` > `安全性与隐私` > `隐私` > `辅助功能`
 - 点击锁图标解锁，添加 MouseQuicker 并勾选
+- 在应用设置界面可以点击"检测权限状态"来验证权限是否生效
 
-**输入监控权限**：
-- 打开 `系统偏好设置` > `安全性与隐私` > `隐私` > `输入监控`
-- 点击锁图标解锁，添加 MouseQuicker 并勾选
+### 3. 解决"应用已损坏"问题
+如果遇到 macOS 提示应用已损坏无法打开，这是由于 Gatekeeper 安全机制导致的。请在终端中执行以下命令：
 
-### 3. 基本操作
-- **呼出菜单**：长按设置的触发键（默认为中键）
-- **选择功能**：选择对应快捷键，点击执行
+```bash
+# 移除应用的隔离属性
+sudo xattr -dr com.apple.quarantine /Applications/MouseQuicker.app
+```
+
+### 4. 基本操作
+- **呼出菜单**：长按设置的触发键（默认为中键）0.2秒
+- **选择功能**：鼠标移动到对应扇形区域，点击执行快捷键
 - **取消菜单**：按 ESC 键或点击菜单外区域
 - **打开设置**：点击菜单栏图标选择"设置"
 - **切换触发键**：在设置界面的"应用控制"部分可选择左键、中键或右键
+- **调整触发时长**：可在设置中调整长按时长（0.1-1.0秒）
 
 ## 默认快捷键
 
@@ -64,19 +86,6 @@
 - 导入/导出配置
 - 调整菜单外观
 
-## 开发编译
-
-```bash
-# 克隆项目
-git clone https://github.com/Syferie/MouseQuicker.git
-cd MouseQuicker
-
-# 使用 Xcode 打开项目
-open MouseQuicker.xcodeproj
-
-# 或使用命令行编译
-xcodebuild -project MouseQuicker.xcodeproj -scheme MouseQuicker -configuration Release
-```
 
 ## 许可证
 

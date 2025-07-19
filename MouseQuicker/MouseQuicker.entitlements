@@ -9,9 +9,5 @@
 	<!-- Allow accessibility features for global mouse monitoring -->
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
-
-	<!-- Allow input monitoring for keyboard shortcut execution -->
-	<key>com.apple.security.device.input-monitoring</key>
-	<true/>
 </dict>
 </plist>

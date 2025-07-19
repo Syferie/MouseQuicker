@@ -42,12 +42,16 @@ class EventMonitor: EventMonitorProtocol {
     
     func startMonitoring() throws {
         guard !isMonitoring else {
+            print("EventMonitor: Already monitoring, skipping start")
             throw EventMonitorError.monitoringAlreadyActive
         }
 
-        // Check permissions
-        guard PermissionManager.shared.checkAccessibilityPermission() else {
-            throw EventMonitorError.accessibilityPermissionDenied
+        // Check permissions (but don't block startup for unsigned apps)
+        let hasPermission = PermissionManager.shared.checkAccessibilityPermission()
+        print("EventMonitor: Accessibility permission check: \(hasPermission)")
+
+        if !hasPermission {
+            print("EventMonitor: Permission check failed, but attempting to start anyway (might work for unsigned apps)")
         }
 
         // Get event types for the current trigger button

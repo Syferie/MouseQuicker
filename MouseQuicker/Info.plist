@@ -31,11 +31,8 @@
 	
 	<!-- Permission descriptions for system access -->
 	<key>NSAccessibilityUsageDescription</key>
-	<string>MouseQuicker需要辅助功能权限来监听全局鼠标事件，以便在您长按鼠标中键时显示快捷键菜单。</string>
-	
-	<key>NSInputMonitoringUsageDescription</key>
-	<string>MouseQuicker需要输入监控权限来检测鼠标按键并执行您配置的键盘快捷键。</string>
-	
+	<string>MouseQuicker需要辅助功能权限来监听全局鼠标事件，以便在您长按鼠标按键时显示快捷键菜单。</string>
+
 	<key>NSAppleEventsUsageDescription</key>
 	<string>MouseQuicker需要Apple Events权限来向其他应用程序发送键盘快捷键。</string>
 	

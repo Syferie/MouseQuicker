@@ -26,10 +26,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide the main window since this is a menu bar app
         NSApp.setActivationPolicy(.accessory)
 
-        // Start permission monitoring
-        PermissionManager.shared.startMonitoringPermissions()
+        // Show permission prompt on first launch only
+        PermissionManager.shared.showFirstLaunchPermissionPrompt()
 
-        // Start the app coordinator
+        // Start the app coordinator (don't block on permissions)
         AppCoordinator.shared.start()
     }
 

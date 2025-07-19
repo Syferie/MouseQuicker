@@ -50,36 +50,30 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
     /// Start the application
     func start() {
         guard !isRunning else { return }
-        
-        // Check permissions first
-        guard PermissionManager.shared.hasAllRequiredPermissions() else {
-            handleMissingPermissions()
-            return
+
+        // Load configuration
+        currentConfig = configManager.loadConfiguration()
+
+        // Apply configuration to components
+        if let config = currentConfig {
+            applyConfiguration(config)
         }
-        
+
+        // Try to start event monitoring (don't block if permissions missing)
         do {
-            // Load configuration
-            currentConfig = configManager.loadConfiguration()
-
-            // Apply configuration to components
-            if let config = currentConfig {
-                applyConfiguration(config)
-            }
-
-            // Start event monitoring
             try eventMonitor?.startMonitoring()
-
-            isRunning = true
-
-            // 启动内存清理定时器
-            startMemoryCleanupTimer()
-
-            print("MouseQuicker started successfully")
-
+            print("MouseQuicker: Event monitoring started successfully")
         } catch {
-            print("Failed to start MouseQuicker: \(error)")
-            ErrorHandler.shared.handleError(error, context: "应用启动", showAlert: true)
+            print("MouseQuicker: Event monitoring failed (likely missing permissions): \(error)")
+            // Don't block startup, just log the error
         }
+
+        isRunning = true
+
+        // 启动内存清理定时器
+        startMemoryCleanupTimer()
+
+        print("MouseQuicker started successfully")
     }
     
     /// Stop the application
@@ -334,16 +328,6 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
 
     
     // MARK: - Error Handling
-
-    private func handleMissingPermissions() {
-        if !PermissionManager.shared.hasAccessibilityPermission {
-            PermissionManager.shared.handleMissingAccessibilityPermission()
-        }
-
-        if !PermissionManager.shared.hasInputMonitoringPermission {
-            PermissionManager.shared.handleMissingInputMonitoringPermission()
-        }
-    }
 
     private func handleStartupError(_ error: Error) {
         // This is now handled by ErrorHandler.shared.handleError

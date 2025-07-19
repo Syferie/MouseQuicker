@@ -75,8 +75,24 @@ struct GeneralSettingsView: View {
                 ProductHeaderView()
 
                 // Permission Status
-                ModernGroupBox(title: "权限状态", icon: "shield.checkered") {
+                ModernGroupBox(title: "权限设置", icon: "shield.checkered") {
                     VStack(spacing: 12) {
+                        // Info text
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("MouseQuicker 需要辅助功能权限才能正常工作")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+                                Text("如果无法正常使用，请检查系统设置中的权限配置")
+                                    .font(.system(.caption, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.bottom, 8)
+
                         PermissionRow(
                             title: "辅助功能权限",
                             isGranted: permissionManager.hasAccessibilityPermission,
@@ -85,11 +101,23 @@ struct GeneralSettingsView: View {
 
                         Divider()
 
-                        PermissionRow(
-                            title: "输入监控权限",
-                            isGranted: permissionManager.hasInputMonitoringPermission,
-                            action: { permissionManager.requestInputMonitoringPermission() }
-                        )
+                        HStack(spacing: 12) {
+                            Button("刷新状态") {
+                                permissionManager.updatePermissionStatus()
+                            }
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.blue, lineWidth: 1)
+                            )
+                            .buttonStyle(PlainButtonStyle())
+
+                            Spacer()
+                        }
                     }
                 }
 
@@ -388,7 +416,7 @@ struct PermissionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(isGranted ? Color.green : Color.red)
+                .fill(isGranted ? Color.green : Color.gray)
                 .frame(width: 8, height: 8)
 
             Text(title)
@@ -397,25 +425,25 @@ struct PermissionRow: View {
 
             Spacer()
 
-            if !isGranted {
-                Button("授权") {
-                    action()
-                }
-                .font(.system(.body, design: .rounded))
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.blue)
-                )
-                .buttonStyle(PlainButtonStyle())
-            } else {
+            if isGranted {
                 Text("已授权")
                     .font(.system(.caption, design: .rounded))
                     .foregroundColor(.green)
                     .fontWeight(.medium)
+            } else {
+                Button("打开设置") {
+                    action()
+                }
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.blue, lineWidth: 1)
+                )
+                .buttonStyle(PlainButtonStyle())
             }
         }
     }
