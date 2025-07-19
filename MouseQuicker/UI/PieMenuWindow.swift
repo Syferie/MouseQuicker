@@ -77,7 +77,11 @@ class PieMenuWindow: NSWindow {
     func positionAt(_ location: NSPoint) {
         // Window is now full-screen, so we need to position the pie menu view within it
         // Convert the location to window coordinates and center the pie menu view there
-        let menuSize: CGFloat = 220.0
+
+        // Calculate menu size based on the maximum possible radius (outer radius * 2 + padding)
+        let maxRadius = pieMenuView.getMaxRadius()
+        let menuSize = maxRadius * 2 + 20 // Add some padding
+
         let menuFrame = NSRect(
             x: location.x - menuSize / 2,
             y: location.y - menuSize / 2,
@@ -88,7 +92,7 @@ class PieMenuWindow: NSWindow {
         // Update the pie menu view frame
         pieMenuView.frame = menuFrame
 
-        print("PieMenuWindow: Positioned menu at \(location), menuFrame=\(menuFrame)")
+        print("PieMenuWindow: Positioned menu at \(location), menuFrame=\(menuFrame), maxRadius=\(maxRadius)")
     }
     
     /// Show the window with animation
@@ -146,12 +150,22 @@ private class FullScreenEventView: NSView {
         let pieMenuFrame = pieMenuView.frame
 
         if pieMenuFrame.contains(windowPoint) {
-            // Forward the event to the pie menu view
-            print("FullScreenEventView: Forwarding event to pie menu view")
-            pieMenuView.mouseDown(with: event)
+            // Convert to pie menu view coordinates and check if it's actually within the menu area
+            let localPoint = pieMenuView.convert(windowPoint, from: nil)
+            let sectorIndex = pieMenuView.sectorIndex(for: localPoint)
+
+            if sectorIndex >= 0 {
+                // Click is within a menu sector, forward the event
+                print("FullScreenEventView: Click within menu sector \(sectorIndex), forwarding event")
+                pieMenuView.mouseDown(with: event)
+            } else {
+                // Click is within frame but outside menu sectors, dismiss
+                print("FullScreenEventView: Click within frame but outside menu sectors, requesting dismissal")
+                pieMenuView.delegate?.pieMenuViewDidRequestDismissal(pieMenuView)
+            }
         } else {
-            // Click outside pie menu - request dismissal
-            print("FullScreenEventView: Click outside pie menu, requesting dismissal")
+            // Click outside pie menu frame - request dismissal
+            print("FullScreenEventView: Click outside pie menu frame, requesting dismissal")
             pieMenuView.delegate?.pieMenuViewDidRequestDismissal(pieMenuView)
         }
     }

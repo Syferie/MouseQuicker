@@ -540,6 +540,11 @@ class PieMenuView: NSView, PieMenuViewProtocol {
 
         print("PieMenuView: Updated menu size - radius: \(menuRadius), inner: \(innerRadius), outer: \(outerRadius)")
     }
+
+    /// Get the maximum radius of the menu (for frame sizing)
+    func getMaxRadius() -> CGFloat {
+        return outerRadius
+    }
     
     func animateAppearance(completion: @escaping () -> Void) {
         // 简约快速动画：从稍微小一点和透明开始
