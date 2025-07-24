@@ -349,13 +349,20 @@ class AppCoordinator: NSObject, ObservableObject, NSWindowDelegate {
 extension AppCoordinator: EventMonitorDelegate {
     func eventMonitor(_ monitor: EventMonitor, didDetectTriggerAt location: NSPoint) {
         guard let config = currentConfig else { return }
+
+        // 在菜单显示之前立即捕获目标应用，避免菜单显示影响焦点
+        targetApplication = NSWorkspace.shared.frontmostApplication
+        print("AppCoordinator: Captured target application before menu show: \(targetApplication?.localizedName ?? "Unknown")")
+
         // Filter out disabled shortcut items
         let enabledItems = config.shortcutItems.filter { $0.isEnabled }
         pieMenuController?.showMenu(at: location, with: enabledItems)
     }
-    
+
     func eventMonitor(_ monitor: EventMonitor, didCancelTrigger: Void) {
         // Handle trigger cancellation if needed
+        // 清除目标应用引用，因为触发被取消了
+        targetApplication = nil
     }
 }
 
@@ -375,13 +382,24 @@ extension AppCoordinator: PieMenuControllerDelegate {
     }
     
     func pieMenuControllerWillShow(_ controller: PieMenuController) {
-        // Remember the currently active application before showing menu
-        targetApplication = NSWorkspace.shared.frontmostApplication
-        print("AppCoordinator: Remembered target application: \(targetApplication?.localizedName ?? "Unknown")")
+        // 目标应用已经在 eventMonitor 触发时捕获，这里不需要重复捕获
+        // 在 HUD 模式下，验证目标应用是否仍然保持焦点
+        if let targetApp = targetApplication {
+            let currentFrontApp = NSWorkspace.shared.frontmostApplication
+            if currentFrontApp?.processIdentifier == targetApp.processIdentifier {
+                print("AppCoordinator: HUD menu will show, target app maintained focus: \(targetApp.localizedName ?? "Unknown")")
+            } else {
+                print("AppCoordinator: Warning - target app lost focus before menu show: \(targetApp.localizedName ?? "Unknown")")
+            }
+        } else {
+            print("AppCoordinator: Menu will show, no target application captured")
+        }
     }
     
     func pieMenuControllerDidHide(_ controller: PieMenuController) {
-        // Handle menu did hide if needed
+        // 清除目标应用引用，为下次使用做准备
+        targetApplication = nil
+        print("AppCoordinator: Menu hidden, cleared target application reference")
     }
 }
 

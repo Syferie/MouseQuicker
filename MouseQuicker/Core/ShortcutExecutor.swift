@@ -144,27 +144,40 @@ class ShortcutExecutor: ShortcutExecutorProtocol {
         keyUpEvent.flags = flags
 
         if let targetApp = targetApplication {
-            // Ensure target application is active before sending events
-            // This is crucial for the shortcut to work correctly
-            targetApp.activate(options: [.activateIgnoringOtherApps])
+            // HUD 模式下的精确快捷键执行
+            // 由于我们使用了真正的无焦点浮层，目标应用应该仍然保持焦点
+            print("ShortcutExecutor: Sending shortcut to target app: \(targetApp.localizedName ?? "Unknown") (PID: \(targetApp.processIdentifier))")
 
-            // Small delay to ensure app activation
-            usleep(50000) // 50ms delay - increased for better reliability
+            // 检查目标应用是否仍然是前台应用
+            let currentFrontApp = NSWorkspace.shared.frontmostApplication
+            if currentFrontApp?.processIdentifier != targetApp.processIdentifier {
+                // 如果目标应用不再是前台应用，说明用户可能切换了应用
+                // 在 HUD 模式下，这种情况应该很少发生
+                print("ShortcutExecutor: Target app is no longer frontmost, activating it")
+                if #available(macOS 14.0, *) {
+                    targetApp.activate()
+                } else {
+                    targetApp.activate(options: [.activateIgnoringOtherApps])
+                }
+                // 等待应用激活
+                usleep(50000) // 50ms delay
+            } else {
+                // 目标应用仍然是前台应用 - 这是 HUD 模式的预期行为
+                // 使用最小延迟以保持响应性
+                usleep(5000) // 5ms delay
+                print("ShortcutExecutor: Target app maintained focus (HUD mode working correctly)")
+            }
 
-            // Post events to the specific application
+            // 直接发送事件到目标应用
             keyDownEvent.postToPid(targetApp.processIdentifier)
-
-            // Small delay between key down and key up
-            usleep(1000) // 1ms delay
-
+            usleep(1000) // 1ms delay between key down and up
             keyUpEvent.postToPid(targetApp.processIdentifier)
+
         } else {
-            // Post events to the system (original behavior)
+            // 没有目标应用时，发送到系统
+            print("ShortcutExecutor: No target app, sending to system")
             keyDownEvent.post(tap: .cghidEventTap)
-
-            // Small delay between key down and key up
             usleep(1000) // 1ms delay
-
             keyUpEvent.post(tap: .cghidEventTap)
         }
     }

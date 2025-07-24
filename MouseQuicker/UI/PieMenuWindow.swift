@@ -35,21 +35,38 @@ class PieMenuWindow: NSWindow {
     }
     
     private func setupWindow() {
-        // Window properties for overlay display
-        level = .floating
+        // 使用真正的 HUD/Overlay 无焦点浮层设置
+
+        // 设置为最高级别的浮层，但不抢夺焦点
+        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.overlayWindow)))
+
+        // 窗口基本属性
         isOpaque = false
         backgroundColor = NSColor.clear
         hasShadow = true
         ignoresMouseEvents = false
 
-        // Make window appear above all other windows
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // 关键：完全禁用焦点相关行为
+        collectionBehavior = [
+            .canJoinAllSpaces,           // 可以在所有空间显示
+            .fullScreenAuxiliary,        // 全屏辅助窗口
+            .ignoresCycle,               // 不参与窗口循环
+            .stationary,                 // 静态窗口，不跟随空间切换
+            .participatesInCycle         // 但允许参与某些系统行为
+        ]
 
-        // Enable mouse events but don't steal focus
+        // 鼠标事件处理
         acceptsMouseMovedEvents = true
 
-        // Don't release when closed and don't become key
+        // 窗口生命周期
         isReleasedWhenClosed = false
+        canHide = false
+        hidesOnDeactivate = false
+
+        // 完全禁用窗口激活和焦点获取
+        isExcludedFromWindowsMenu = true
+
+        print("PieMenuWindow: Configured as true HUD overlay with no focus stealing")
     }
     
     private func setupContentView() {
@@ -101,13 +118,26 @@ class PieMenuWindow: NSWindow {
         pieMenuView.layer?.transform = CATransform3DMakeScale(0.9, 0.9, 1.0)
         pieMenuView.layer?.opacity = 0.0
 
-        // Only order front if not already visible
+        // 使用最安全的 HUD 显示方式
         if !isVisible {
-            orderFront(nil)
+            // 使用 orderFrontRegardless 是 HUD 窗口的标准做法
+            // 这确保窗口显示但不会抢夺任何焦点
+            orderFrontRegardless()
+
+            // 额外确保：显示后立即确认不会成为关键窗口
+            DispatchQueue.main.async { [weak self] in
+                if let self = self, self.isKeyWindow {
+                    // 如果意外成为了关键窗口，立即放弃关键状态
+                    self.resignKey()
+                    print("PieMenuWindow: Emergency focus release - resigned key status")
+                }
+            }
         }
 
         // 立即开始动画
         pieMenuView.animateAppearance(completion: completion)
+
+        print("PieMenuWindow: HUD overlay displayed without focus stealing")
     }
     
     /// Hide the window with animation
@@ -121,8 +151,43 @@ class PieMenuWindow: NSWindow {
     // MARK: - Window Events
 
     override var canBecomeKey: Bool {
-        // Don't become key window to avoid interfering with target application focus
+        // 绝对不能成为关键窗口 - 这是 HUD 的核心特性
         return false
+    }
+
+    override var canBecomeMain: Bool {
+        // 绝对不能成为主窗口 - 保持目标应用的主窗口状态
+        return false
+    }
+
+    override var acceptsFirstResponder: Bool {
+        // 不接受第一响应者状态，避免键盘焦点转移
+        return false
+    }
+
+    override func becomeKey() {
+        // 重写 becomeKey 方法，确保永远不会成为关键窗口
+        // 不调用 super.becomeKey()
+        print("PieMenuWindow: Prevented from becoming key window")
+    }
+
+    override func makeKey() {
+        // 重写 makeKey 方法，确保永远不会被设为关键窗口
+        // 不调用 super.makeKey()
+        print("PieMenuWindow: Prevented from being made key window")
+    }
+
+    override func orderFront(_ sender: Any?) {
+        // 使用 orderFrontRegardless 来显示窗口，但不改变焦点
+        orderFrontRegardless()
+    }
+
+    override func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
+        // 确保窗口排序操作不会影响焦点
+        if place == .above || place == .out {
+            super.order(place, relativeTo: otherWin)
+        }
+        // 忽略其他可能影响焦点的排序操作
     }
 
     // MARK: - Memory Management
