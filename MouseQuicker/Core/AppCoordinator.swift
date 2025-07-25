@@ -354,9 +354,23 @@ extension AppCoordinator: EventMonitorDelegate {
         targetApplication = NSWorkspace.shared.frontmostApplication
         print("AppCoordinator: Captured target application before menu show: \(targetApplication?.localizedName ?? "Unknown")")
 
-        // Filter out disabled shortcut items
-        let enabledItems = config.shortcutItems.filter { $0.isEnabled }
-        pieMenuController?.showMenu(at: location, with: enabledItems)
+        // Filter shortcut items based on enabled status and application scope
+        let activeItems = config.shortcutItems.filter { item in
+            // 首先检查是否启用
+            guard item.isEnabled else { return false }
+
+            // 然后检查应用范围
+            guard let targetApp = targetApplication else {
+                // 如果没有目标应用，只显示全局范围的快捷键
+                return item.applicationScope.mode == .allApplications
+            }
+
+            // 根据应用范围配置决定是否显示
+            return item.applicationScope.isActiveFor(application: targetApp)
+        }
+
+        print("AppCoordinator: Filtered \(activeItems.count) active items from \(config.shortcutItems.count) total items for app: \(targetApplication?.localizedName ?? "Unknown")")
+        pieMenuController?.showMenu(at: location, with: activeItems)
     }
 
     func eventMonitor(_ monitor: EventMonitor, didCancelTrigger: Void) {

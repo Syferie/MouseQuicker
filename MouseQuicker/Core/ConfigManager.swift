@@ -131,11 +131,68 @@ class ConfigManager: ConfigManagerProtocol, ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: "MouseQuickerConfig") else {
             return nil
         }
-        
+
         do {
             return try JSONDecoder().decode(AppConfig.self, from: data)
         } catch {
             print("Failed to decode configuration: \(error)")
+
+            // 尝试迁移旧版本配置
+            if let migratedConfig = migrateOldConfiguration(from: data) {
+                print("Successfully migrated old configuration")
+                return migratedConfig
+            }
+
+            return nil
+        }
+    }
+
+    /// 迁移旧版本配置数据
+    private static func migrateOldConfiguration(from data: Data) -> AppConfig? {
+        do {
+            // 尝试解析为旧版本的 ShortcutItem（没有 applicationScope 字段）
+            struct OldShortcutItem: Codable {
+                let id: UUID
+                let title: String
+                let shortcut: KeyboardShortcut
+                let iconName: String
+                let isEnabled: Bool
+                let executionMode: ShortcutExecutionMode
+            }
+
+            struct OldAppConfig: Codable {
+                let shortcutItems: [OldShortcutItem]
+                let triggerDuration: TimeInterval
+                let triggerButton: TriggerButton
+                let menuAppearance: MenuAppearance
+                let version: String
+            }
+
+            let oldConfig = try JSONDecoder().decode(OldAppConfig.self, from: data)
+
+            // 转换为新版本格式
+            let newShortcutItems = oldConfig.shortcutItems.map { oldItem in
+                ShortcutItem(
+                    id: oldItem.id,
+                    title: oldItem.title,
+                    shortcut: oldItem.shortcut,
+                    iconName: oldItem.iconName,
+                    isEnabled: oldItem.isEnabled,
+                    executionMode: oldItem.executionMode,
+                    applicationScope: .default  // 使用默认应用范围
+                )
+            }
+
+            return AppConfig(
+                shortcutItems: newShortcutItems,
+                triggerDuration: oldConfig.triggerDuration,
+                triggerButton: oldConfig.triggerButton,
+                menuAppearance: oldConfig.menuAppearance,
+                version: oldConfig.version
+            )
+
+        } catch {
+            print("Failed to migrate old configuration: \(error)")
             return nil
         }
     }

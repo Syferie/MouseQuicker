@@ -171,6 +171,115 @@ enum ShortcutExecutionMode: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - ApplicationScope
+
+/// Defines the scope of applications where a shortcut should be active
+enum ApplicationScopeMode: String, Codable, CaseIterable {
+    case allApplications = "all"        // 在所有应用中生效
+    case specificApplications = "specific"  // 仅在指定应用中生效
+    case excludeApplications = "exclude"    // 在除指定应用外的所有应用中生效
+
+    /// Display name for the scope mode
+    var displayName: String {
+        switch self {
+        case .allApplications: return "所有应用"
+        case .specificApplications: return "指定应用"
+        case .excludeApplications: return "排除应用"
+        }
+    }
+
+    /// Description of the scope mode
+    var description: String {
+        switch self {
+        case .allApplications: return "快捷键在所有应用中都显示"
+        case .specificApplications: return "快捷键仅在选定的应用中显示"
+        case .excludeApplications: return "快捷键在除选定应用外的所有应用中显示"
+        }
+    }
+
+    /// Icon for the scope mode
+    var icon: String {
+        switch self {
+        case .allApplications: return "globe"
+        case .specificApplications: return "app.badge.checkmark"
+        case .excludeApplications: return "app.badge.minus"
+        }
+    }
+}
+
+/// Represents an application in the scope configuration
+struct ApplicationInfo: Codable, Identifiable, Hashable {
+    let id: String              // Bundle identifier
+    let name: String            // Display name
+    let bundlePath: String?     // Application bundle path
+
+    init(id: String, name: String, bundlePath: String? = nil) {
+        self.id = id
+        self.name = name
+        self.bundlePath = bundlePath
+    }
+
+    /// Create from NSRunningApplication
+    init(from runningApp: NSRunningApplication) {
+        self.id = runningApp.bundleIdentifier ?? "unknown.\(runningApp.processIdentifier)"
+        self.name = runningApp.localizedName ?? "Unknown App"
+        self.bundlePath = runningApp.bundleURL?.path
+    }
+}
+
+/// Defines the application scope for a shortcut
+struct ApplicationScope: Codable, Hashable {
+    let mode: ApplicationScopeMode
+    let applications: [ApplicationInfo]
+
+    init(mode: ApplicationScopeMode = .allApplications, applications: [ApplicationInfo] = []) {
+        self.mode = mode
+        self.applications = applications
+    }
+
+    /// Check if the shortcut should be active for the given application
+    func isActiveFor(application: NSRunningApplication) -> Bool {
+        let appId = application.bundleIdentifier ?? "unknown.\(application.processIdentifier)"
+        let containsApp = applications.contains { $0.id == appId }
+
+        switch mode {
+        case .allApplications:
+            return true
+        case .specificApplications:
+            return containsApp
+        case .excludeApplications:
+            return !containsApp
+        }
+    }
+
+    /// Get display text for the scope
+    var displayText: String {
+        switch mode {
+        case .allApplications:
+            return "所有应用"
+        case .specificApplications:
+            if applications.isEmpty {
+                return "未选择应用"
+            } else if applications.count == 1 {
+                return applications.first!.name
+            } else {
+                return "\(applications.count)个应用"
+            }
+        case .excludeApplications:
+            if applications.isEmpty {
+                return "所有应用"
+            } else if applications.count == 1 {
+                return "除\(applications.first!.name)外"
+            } else {
+                return "除\(applications.count)个应用外"
+            }
+        }
+    }
+
+    /// Default scope (all applications)
+    static let `default` = ApplicationScope()
+}
+
 // MARK: - ShortcutItem
 
 /// Represents a single shortcut item in the pie menu
@@ -180,27 +289,35 @@ struct ShortcutItem: Codable, Identifiable, Hashable {
     let shortcut: KeyboardShortcut
     let iconName: String
     let isEnabled: Bool
-    let executionMode: ShortcutExecutionMode  // 新增：执行模式
+    let executionMode: ShortcutExecutionMode  // 执行模式
+    let applicationScope: ApplicationScope    // 新增：应用范围
 
-    init(id: UUID = UUID(), title: String, shortcut: KeyboardShortcut, iconName: String, isEnabled: Bool = true, executionMode: ShortcutExecutionMode = .targetApp) {
+    init(id: UUID = UUID(), title: String, shortcut: KeyboardShortcut, iconName: String, isEnabled: Bool = true, executionMode: ShortcutExecutionMode = .targetApp, applicationScope: ApplicationScope = .default) {
         self.id = id
         self.title = title
         self.shortcut = shortcut
         self.iconName = iconName
         self.isEnabled = isEnabled
         self.executionMode = executionMode
+        self.applicationScope = applicationScope
     }
-    
+
     /// Create a copy with modified properties
-    func with(title: String? = nil, shortcut: KeyboardShortcut? = nil, iconName: String? = nil, isEnabled: Bool? = nil, executionMode: ShortcutExecutionMode? = nil) -> ShortcutItem {
+    func with(title: String? = nil, shortcut: KeyboardShortcut? = nil, iconName: String? = nil, isEnabled: Bool? = nil, executionMode: ShortcutExecutionMode? = nil, applicationScope: ApplicationScope? = nil) -> ShortcutItem {
         return ShortcutItem(
             id: self.id,
             title: title ?? self.title,
             shortcut: shortcut ?? self.shortcut,
             iconName: iconName ?? self.iconName,
             isEnabled: isEnabled ?? self.isEnabled,
-            executionMode: executionMode ?? self.executionMode
+            executionMode: executionMode ?? self.executionMode,
+            applicationScope: applicationScope ?? self.applicationScope
         )
+    }
+
+    /// Check if this shortcut should be active for the given application
+    func isActiveFor(application: NSRunningApplication) -> Bool {
+        return isEnabled && applicationScope.isActiveFor(application: application)
     }
 }
 
@@ -305,11 +422,11 @@ struct AppConfig: Codable {
     /// Default configuration with sample shortcuts
     static let `default`: AppConfig = {
         let sampleShortcuts = [
-            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc", executionMode: .targetApp),
-            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard", executionMode: .targetApp),
-            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward", executionMode: .targetApp),
-            ShortcutItem(title: "重做", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command, .shift]), iconName: "arrow.uturn.forward", executionMode: .targetApp),
-            ShortcutItem(title: "保存", shortcut: KeyboardShortcut(primaryKey: .s, modifiers: [.command]), iconName: "square.and.arrow.down", executionMode: .targetApp)
+            ShortcutItem(title: "复制", shortcut: KeyboardShortcut(primaryKey: .c, modifiers: [.command]), iconName: "doc.on.doc", executionMode: .targetApp, applicationScope: .default),
+            ShortcutItem(title: "粘贴", shortcut: KeyboardShortcut(primaryKey: .v, modifiers: [.command]), iconName: "doc.on.clipboard", executionMode: .targetApp, applicationScope: .default),
+            ShortcutItem(title: "撤销", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command]), iconName: "arrow.uturn.backward", executionMode: .targetApp, applicationScope: .default),
+            ShortcutItem(title: "重做", shortcut: KeyboardShortcut(primaryKey: .z, modifiers: [.command, .shift]), iconName: "arrow.uturn.forward", executionMode: .targetApp, applicationScope: .default),
+            ShortcutItem(title: "保存", shortcut: KeyboardShortcut(primaryKey: .s, modifiers: [.command]), iconName: "square.and.arrow.down", executionMode: .targetApp, applicationScope: .default)
         ]
 
         return AppConfig(shortcutItems: sampleShortcuts)

@@ -19,6 +19,8 @@ struct EditShortcutView: View {
     @State private var recordedShortcut: KeyboardShortcut?
     @State private var selectedIcon: IconType?
     @State private var selectedExecutionMode: ShortcutExecutionMode
+    @State private var applicationScope: ApplicationScope
+    @State private var showingApplicationSelector = false
     @State private var showingError = false
     @State private var errorMessage = ""
 
@@ -28,6 +30,7 @@ struct EditShortcutView: View {
         self._recordedShortcut = State(initialValue: shortcutItem.shortcut)
         self._selectedIcon = State(initialValue: IconType.sfSymbol(shortcutItem.iconName))
         self._selectedExecutionMode = State(initialValue: shortcutItem.executionMode)
+        self._applicationScope = State(initialValue: shortcutItem.applicationScope)
     }
     
     var body: some View {
@@ -49,6 +52,9 @@ struct EditShortcutView: View {
             Button("确定") { }
         } message: {
             Text(errorMessage)
+        }
+        .sheet(isPresented: $showingApplicationSelector) {
+            ApplicationSelectorView(applicationScope: $applicationScope)
         }
     }
     
@@ -110,6 +116,18 @@ struct EditShortcutView: View {
 
                 ExecutionModeSelector(selectedMode: $selectedExecutionMode)
             }
+
+            // Application scope selector
+            VStack(alignment: .leading, spacing: 8) {
+                Text("生效范围")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                ApplicationScopeSelector(
+                    applicationScope: $applicationScope,
+                    showingApplicationSelector: $showingApplicationSelector
+                )
+            }
         }
     }
     
@@ -166,7 +184,8 @@ struct EditShortcutView: View {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             shortcut: shortcut,
             iconName: iconName,
-            executionMode: selectedExecutionMode
+            executionMode: selectedExecutionMode,
+            applicationScope: applicationScope
         )
         
         // Save to config

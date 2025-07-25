@@ -623,6 +623,24 @@ struct ModernShortcutItemRow: View {
                             .fill(Color.secondary.opacity(0.1))
                     )
 
+                    // Application scope indicator
+                    if item.applicationScope.mode != .allApplications {
+                        HStack(spacing: 4) {
+                            Image(systemName: item.applicationScope.mode.icon)
+                                .font(.system(size: 10))
+                            Text(item.applicationScope.displayText)
+                                .font(.system(.caption2, design: .rounded))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.blue.opacity(0.1))
+                        )
+                    }
+
                     // Status indicator
                     if !item.isEnabled {
                         Text("已禁用")
@@ -1086,6 +1104,8 @@ struct AddShortcutView: View {
     @State private var recordedShortcut: KeyboardShortcut?
     @State private var selectedIcon: IconType? = IconType.sfSymbol("keyboard")
     @State private var selectedExecutionMode: ShortcutExecutionMode = .targetApp
+    @State private var applicationScope: ApplicationScope = .default
+    @State private var showingApplicationSelector = false
     @State private var showingError = false
     @State private var errorMessage = ""
 
@@ -1108,6 +1128,9 @@ struct AddShortcutView: View {
             Button("确定") { }
         } message: {
             Text(errorMessage)
+        }
+        .sheet(isPresented: $showingApplicationSelector) {
+            ApplicationSelectorView(applicationScope: $applicationScope)
         }
     }
 
@@ -1169,6 +1192,18 @@ struct AddShortcutView: View {
 
                 ExecutionModeSelector(selectedMode: $selectedExecutionMode)
             }
+
+            // Application scope selector
+            VStack(alignment: .leading, spacing: 8) {
+                Text("生效范围")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                ApplicationScopeSelector(
+                    applicationScope: $applicationScope,
+                    showingApplicationSelector: $showingApplicationSelector
+                )
+            }
         }
     }
 
@@ -1224,7 +1259,8 @@ struct AddShortcutView: View {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             shortcut: shortcut,
             iconName: iconName,
-            executionMode: selectedExecutionMode
+            executionMode: selectedExecutionMode,
+            applicationScope: applicationScope
         )
 
         do {
@@ -1432,6 +1468,53 @@ struct OptimizationSuggestionsView: View {
         case .medium: return "中"
         case .high: return "高"
         case .critical: return "紧急"
+        }
+    }
+}
+
+// MARK: - Application Scope Selector
+
+struct ApplicationScopeSelector: View {
+    @Binding var applicationScope: ApplicationScope
+    @Binding var showingApplicationSelector: Bool
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Current scope display
+            HStack {
+                Image(systemName: applicationScope.mode.icon)
+                    .foregroundColor(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(applicationScope.mode.displayName)
+                        .font(.body)
+                        .fontWeight(.medium)
+
+                    Text(applicationScope.displayText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button("配置") {
+                    showingApplicationSelector = true
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(NSColor.controlBackgroundColor))
+            )
+
+            // Description
+            Text(applicationScope.mode.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
