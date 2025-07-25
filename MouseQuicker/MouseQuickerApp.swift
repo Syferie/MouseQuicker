@@ -26,6 +26,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide the main window since this is a menu bar app
         NSApp.setActivationPolicy(.accessory)
 
+        // Initialize launch at login manager
+        _ = LaunchAtLoginManager.shared
+
         // Show permission prompt on first launch only
         PermissionManager.shared.showFirstLaunchPermissionPrompt()
 

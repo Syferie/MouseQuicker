@@ -66,6 +66,7 @@ struct GeneralSettingsView: View {
     @ObservedObject private var permissionManager = PermissionManager.shared
     @ObservedObject private var appCoordinator = AppCoordinator.shared
     @ObservedObject private var configManager = ConfigManager.shared
+    @ObservedObject private var launchAtLoginManager = LaunchAtLoginManager.shared
     @State private var showingImportExport = false
 
     var body: some View {
@@ -241,6 +242,30 @@ struct GeneralSettingsView: View {
                                 }
                             }
                             .padding(.top, 4)
+                        }
+
+                        Divider()
+
+                        // Launch at Login Setting
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("开机自启动")
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWeight(.medium)
+
+                                Text("系统启动时自动运行 MouseQuicker")
+                                    .font(.system(.caption, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Toggle("", isOn: Binding(
+                                get: { launchAtLoginManager.isLaunchAtLoginEnabled },
+                                set: { _ in launchAtLoginManager.toggleLaunchAtLogin() }
+                            ))
+                            .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            .help(launchAtLoginManager.isLaunchAtLoginEnabled ? "禁用开机自启动" : "启用开机自启动")
                         }
                     }
                 }
